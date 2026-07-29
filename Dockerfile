@@ -12,9 +12,17 @@ COPY resources ./resources
 COPY vite.config.js ./
 RUN npm run build
 
-FROM composer:2.8 AS vendor
+FROM php:8.3-cli-alpine AS vendor
 
 WORKDIR /app
+
+RUN apk add --no-cache curl git unzip \
+    && curl -fsSL https://getcomposer.org/installer -o composer-setup.php \
+    && EXPECTED_CHECKSUM="$(curl -fsSL https://composer.github.io/installer.sig)" \
+    && ACTUAL_CHECKSUM="$(php -r "echo hash_file('sha384', 'composer-setup.php');")" \
+    && [ "$EXPECTED_CHECKSUM" = "$ACTUAL_CHECKSUM" ] \
+    && php composer-setup.php --install-dir=/usr/local/bin --filename=composer \
+    && rm composer-setup.php
 
 COPY composer.json composer.lock ./
 RUN composer install \
