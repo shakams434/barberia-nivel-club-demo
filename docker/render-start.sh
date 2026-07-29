@@ -4,6 +4,12 @@ set -eu
 
 cd /var/www/html
 
+case "${APP_KEY:-}" in
+    base64:*) ;;
+    "") echo "APP_KEY no está configurada." >&2; exit 1 ;;
+    *) export APP_KEY="base64:${APP_KEY}" ;;
+esac
+
 mkdir -p \
     bootstrap/cache \
     storage/app/public \
