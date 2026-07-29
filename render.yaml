@@ -1,0 +1,76 @@
+databases:
+  - name: barberia-nivel-club-db
+    plan: free
+    region: oregon
+    databaseName: nivel_club
+    user: nivel_club
+    ipAllowList: []
+
+services:
+  - type: web
+    name: barberia-nivel-club-shaka
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: APP_NAME
+        value: Nivel Club
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_URL
+        value: https://barberia-nivel-club-shaka.onrender.com
+      - key: ASSET_URL
+        value: https://barberia-nivel-club-shaka.onrender.com
+      - key: APP_TIMEZONE
+        value: America/Lima
+      - key: APP_LOCALE
+        value: es
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: info
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DATABASE_URL
+        fromDatabase:
+          name: barberia-nivel-club-db
+          property: connectionString
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_ENCRYPT
+        value: "true"
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: SESSION_SAME_SITE
+        value: lax
+      - key: MAIL_MAILER
+        value: log
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: WHATSAPP_PROVIDER
+        value: fake
+      - key: WHATSAPP_SEND_ENABLED
+        value: "false"
+      - key: META_WHATSAPP_SEND_ENABLED
+        value: "false"
+      - key: RENDER_DEMO_SEED
+        value: "true"
+      - key: DEMO_ADMIN_NAME
+        sync: false
+      - key: DEMO_ADMIN_USERNAME
+        sync: false
+      - key: DEMO_ADMIN_EMAIL
+        sync: false
+      - key: DEMO_ADMIN_PASSWORD
+        sync: false
