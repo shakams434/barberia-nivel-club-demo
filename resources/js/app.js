@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
             openDialog(confirmDialog);
         });
     });
-    qs('[data-confirm-submit]', confirmDialog)?.addEventListener('click', () => {
+    confirmDialog?.querySelector('[data-confirm-submit]')?.addEventListener('click', () => {
         if (!pendingForm) return;
         pendingForm.dataset.confirmed = 'true';
         confirmDialog.close();
