@@ -6,7 +6,6 @@
     <div>
         <p class="eyebrow">Centro de operaciones</p>
         <h1 class="title">¿A quién atendemos hoy?</h1>
-        <p class="subtitle">Encuentra al cliente y registra su atención sin salir del flujo.</p>
     </div>
     <div class="flex flex-wrap gap-2"><button type="button" class="btn btn-primary" data-open-dialog="quick-action-dialog">＋ Registrar atención</button><a href="{{ route('customers.create') }}" class="btn btn-secondary">Nuevo cliente</a></div>
 </div>
@@ -83,12 +82,12 @@
 
 <section class="mt-5 grid gap-5 lg:grid-cols-[1.25fr_.75fr]">
     <div class="card">
-        <div class="flex items-center justify-between"><div><p class="eyebrow">Campañas</p><h2 class="mt-1 text-lg font-black">Actividad reciente</h2></div><a href="{{ route('campaigns.index') }}" class="btn btn-ghost min-h-10 text-xs">Ver todas</a></div>
+        <div class="flex items-start justify-between gap-3"><div><p class="eyebrow">Promociones por WhatsApp</p><h2 class="mt-1 text-lg font-black">Últimas campañas</h2><p class="mt-1 text-xs text-[#858b95]">Clientes incluidos y estado de cada envío.</p></div><a href="{{ route('campaigns.index') }}" class="btn btn-ghost min-h-10 shrink-0 text-xs">Ver todas</a></div>
         <div class="mt-4 grid gap-3 sm:grid-cols-3">
             @forelse($recentCampaigns as $campaign)
-                <a href="{{ route('campaigns.show', $campaign) }}" class="card-soft card-interactive"><strong class="block truncate text-sm">{{ $campaign->name }}</strong><span class="mt-2 block text-2xl font-black">{{ $campaign->recipients_count }}</span><span class="text-[11px] text-[#858b95]">destinatarios · {{ ['draft' => 'Borrador', 'scheduled' => 'Programada', 'queued' => 'En cola', 'processing' => 'Procesando', 'paused' => 'Pausada', 'completed' => 'Completada', 'cancelled' => 'Cancelada'][$campaign->status] ?? $campaign->status }}</span></a>
+                <a href="{{ route('campaigns.show', $campaign) }}" class="card-soft card-interactive"><strong class="block truncate text-sm">{{ $campaign->name }}</strong><span class="mt-2 block text-2xl font-black">{{ $campaign->recipients_count }}</span><span class="text-[11px] text-[#858b95]">{{ $campaign->recipients_count === 1 ? 'cliente incluido' : 'clientes incluidos' }} · {{ ['draft' => 'Borrador', 'scheduled' => 'Programada', 'queued' => 'En cola', 'processing' => 'Procesando', 'paused' => 'Pausada', 'completed' => 'Completada', 'cancelled' => 'Cancelada'][$campaign->status] ?? $campaign->status }}</span></a>
             @empty
-                <div class="empty sm:col-span-3">Crea una campaña cuando tengas una plantilla de promociones aprobada.</div>
+                <div class="empty sm:col-span-3">Cuando crees una promoción por WhatsApp, su resumen aparecerá aquí.</div>
             @endforelse
         </div>
     </div>
