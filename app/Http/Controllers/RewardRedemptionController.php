@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Consent;
 use App\Models\CustomerReward;
 use App\Models\RewardRedemption;
-use App\Services\BusinessSetupService;
 use App\Services\ConsentService;
 use App\Services\LoyaltyEngine;
+use App\Services\MessageAutomationService;
 use App\Services\WhatsAppMessageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +21,7 @@ class RewardRedemptionController extends Controller
         LoyaltyEngine $engine,
         ConsentService $consents,
         WhatsAppMessageService $messages,
-        BusinessSetupService $setup,
+        MessageAutomationService $automations,
     ): RedirectResponse {
         $data = $request->validate(['note' => ['nullable', 'string', 'max:500']]);
         $customerReward = CustomerReward::where('public_id', $reward)->with(['customer', 'reward'])->firstOrFail();
@@ -29,21 +29,23 @@ class RewardRedemptionController extends Controller
 
         if ($consents->hasActive($customerReward->customer, Consent::LOYALTY)) {
             $business = $request->user()->business;
-            $template = $setup->ensureTemplate($business, 'loyalty_reward_redeemed');
-            $message = $messages->queue(
-                $customerReward->customer,
-                $template,
-                [$customerReward->customer->name, $customerReward->reward->name, $request->user()->business->name],
-                'reward-redemption:'.$redemption->id,
-                "Hola {$customerReward->customer->name}. Confirmamos el canje de {$customerReward->reward->name}.",
-            );
-            if ($business->whatsappAccount?->provider === 'fake' || $template->status === 'approved') {
-                $messages->attemptNow($message->id, true);
-            } else {
-                $message->update([
-                    'error_code' => 'TEMPLATE_NOT_APPROVED',
-                    'error_message' => 'Aprueba la plantilla de confirmación de canje en Meta antes de reintentar.',
-                ]);
+            $template = $automations->templateFor($business, 'reward_redeemed');
+            if ($template) {
+                $message = $messages->queue(
+                    $customerReward->customer,
+                    $template,
+                    [$customerReward->customer->name, $customerReward->reward->name, $business->name],
+                    'reward-redemption:'.$redemption->id,
+                    "Hola {$customerReward->customer->name}. Confirmamos el canje de {$customerReward->reward->name}.",
+                );
+                if ($business->whatsappAccount?->provider === 'fake' || $template->status === 'approved') {
+                    $messages->attemptNow($message->id, true);
+                } else {
+                    $message->update([
+                        'error_code' => 'TEMPLATE_NOT_APPROVED',
+                        'error_message' => 'Aprueba la plantilla de confirmación de canje en Meta antes de reintentar.',
+                    ]);
+                }
             }
         }
 

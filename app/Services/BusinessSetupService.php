@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Business;
 use App\Models\LoyaltyProgram;
+use App\Models\MessageAutomation;
 use App\Models\Service;
 use App\Models\Tier;
 use App\Models\WhatsAppAccount;
@@ -79,6 +80,14 @@ class BusinessSetupService
         foreach (array_keys($this->templates()) as $technicalName) {
             $this->ensureTemplate($business, $technicalName);
         }
+
+        foreach (MessageAutomationService::DEFINITIONS as $eventKey => $definition) {
+            $template = $this->ensureTemplate($business, $definition['default_template']);
+            MessageAutomation::withoutGlobalScope('business')->firstOrCreate(
+                ['business_id' => $business->id, 'event_key' => $eventKey],
+                ['whatsapp_template_id' => $template->id, 'active' => true],
+            );
+        }
     }
 
     public function ensureTemplate(Business $business, string $technicalName): WhatsAppTemplate
@@ -97,6 +106,7 @@ class BusinessSetupService
             ],
             [
                 'public_id' => (string) Str::uuid(),
+                'display_name' => $definition['display_name'],
                 'category' => $definition['category'],
                 'header_type' => 'none',
                 'body' => $definition['body'],
@@ -112,26 +122,31 @@ class BusinessSetupService
     {
         return [
             'loyalty_welcome' => [
+                'display_name' => 'Bienvenida al programa',
                 'category' => 'utility',
                 'body' => "Hola {{1}}. Tu inscripción en {{2}} está confirmada.\nComienzas en Nivel {{3}}. Responde SALDO, NIVEL, PREMIOS o AYUDA.",
                 'samples' => ['Cliente', 'Mi barbería', '1'],
             ],
             'loyalty_xp_update' => [
+                'display_name' => 'Resumen después de una atención',
                 'category' => 'utility',
                 'body' => "Hola {{1}}. Ganaste {{3}} XP en {{2}}.\nAhora eres Nivel {{4}} · {{5}}. Progreso: {{6}}%.",
                 'samples' => ['Cliente', 'Mi barbería', '100', '4', 'Bronce', '50'],
             ],
             'loyalty_level_up' => [
+                'display_name' => 'Aviso de subida de nivel',
                 'category' => 'utility',
                 'body' => "Subiste de nivel, {{1}}.\nAhora eres Nivel {{2}} · {{3}} en {{4}}.\nRecompensa: {{5}}.",
                 'samples' => ['Cliente', '5', 'Plata', 'Mi barbería', 'Beneficio especial'],
             ],
             'loyalty_reward_redeemed' => [
+                'display_name' => 'Confirmación de canje',
                 'category' => 'utility',
                 'body' => 'Hola {{1}}. Confirmamos el canje de {{2}} en {{3}}. Tu XP histórico se mantiene.',
                 'samples' => ['Cliente', 'Beneficio especial', 'Mi barbería'],
             ],
             'loyalty_opt_out' => [
+                'display_name' => 'Confirmación de baja promocional',
                 'category' => 'utility',
                 'body' => 'Hola {{1}}. Dejaste de recibir promociones de {{2}}. Tu nivel y recompensas se mantienen.',
                 'samples' => ['Cliente', 'Mi barbería'],

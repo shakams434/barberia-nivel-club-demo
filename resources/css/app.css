@@ -102,6 +102,8 @@ button, [role="button"], a { -webkit-tap-highlight-color: transparent; }
 }
 
 .simulation-banner { background: repeating-linear-gradient(135deg, rgba(212,175,55,.14), rgba(212,175,55,.14) 8px, rgba(212,175,55,.07) 8px, rgba(212,175,55,.07) 16px); }
+.tabs { scrollbar-width: none; -ms-overflow-style: none; }
+.tabs::-webkit-scrollbar { display: none; }
 .spinner { width: 1rem; height: 1rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 999px; animation: spin .65s linear infinite; }
 .toast-leave { opacity: 0; transform: translateX(1rem); transition: .2s ease; }
 .progress-fill { animation: progress-in .65s cubic-bezier(.2,.8,.2,1) both; transform-origin: left; }

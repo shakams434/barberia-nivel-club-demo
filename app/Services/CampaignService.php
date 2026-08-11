@@ -24,6 +24,8 @@ class CampaignService
             ->when($filters['min_level'] ?? null, fn ($query, $level) => $query->where('level', '>=', $level))
             ->when($filters['max_level'] ?? null, fn ($query, $level) => $query->where('level', '<=', $level))
             ->when($filters['tier_id'] ?? null, fn ($query, $tier) => $query->where('tier_id', $tier))
+            ->when($filters['gender'] ?? null, fn ($query, $gender) => $query->where('gender', $gender))
+            ->when($filters['service_id'] ?? null, fn ($query, $serviceId) => $query->whereHas('visits', fn ($query) => $query->where('service_id', $serviceId)))
             ->when($filters['inactive_days'] ?? null, fn ($query, $days) => $query->where(function ($query) use ($days): void {
                 $query->whereNull('last_visit_at')->orWhere('last_visit_at', '<=', now()->subDays((int) $days));
             }))

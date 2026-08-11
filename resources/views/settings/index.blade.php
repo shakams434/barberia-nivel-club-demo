@@ -10,7 +10,7 @@
 </div>
 
 <nav class="tabs sticky top-16 z-10 -mx-4 mb-5 border-y border-white/8 bg-[#0f1115]/94 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0" aria-label="Secciones de configuración">
-    @foreach(['negocio' => 'Negocio', 'programa' => 'Programa', 'catalogo' => 'Catálogo', 'whatsapp' => 'WhatsApp', 'plantillas' => 'Plantillas', 'qr' => 'QR', 'cuenta' => 'Cuenta'] as $anchor => $label)<a href="#{{ $anchor }}">{{ $label }}</a>@endforeach
+    @foreach(['negocio' => 'Negocio', 'programa' => 'Programa', 'catalogo' => 'Catálogo', 'whatsapp' => 'WhatsApp', 'plantillas' => 'Plantillas', 'automatizaciones' => 'Automatizaciones', 'qr' => 'QR', 'cuenta' => 'Cuenta'] as $anchor => $label)<a href="#{{ $anchor }}">{{ $label }}</a>@endforeach
 </nav>
 
 <div class="space-y-5">
@@ -114,43 +114,8 @@
         <form method="POST" action="{{ route('settings.whatsapp.test') }}" class="mt-3 flex justify-end" data-confirm="Se intentará enviar un único mensaje al teléfono autorizado configurado en Negocio." data-confirm-title="Probar conexión" data-confirm-button="Enviar prueba">@csrf<button class="btn btn-secondary" type="submit">Enviar mensaje de prueba</button></form>
     </section>
 
-    <section id="plantillas" class="card scroll-mt-32">
-        <div><p class="eyebrow">Plantillas</p><h2 class="mt-1 text-xl font-black">Contenido y estado de Meta</h2><p class="subtitle">Meta decide la categoría y aprobación final de cada plantilla.</p></div>
-        <div class="mt-5 grid gap-3 lg:grid-cols-2">
-            @forelse($templates as $template)
-                <article class="card-soft">
-                    <div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-black">{{ $template->technical_name }}</h3><p class="text-xs text-[#858b95]">{{ $template->category === 'marketing' ? 'Promociones' : 'Servicio' }} · {{ $template->language }}</p></div><span class="badge {{ $template->status === 'approved' ? 'badge-success' : ($template->status === 'rejected' ? 'badge-danger' : 'badge-warning') }}">{{ $templateStatusLabels[$template->status] ?? $template->status }}</span></div>
-                    <p class="mt-3 whitespace-pre-line text-xs leading-5 text-[#aeb3bc]">{{ $template->body }}</p>
-                    @if($template->rejection_reason)<p class="mt-2 text-xs text-rose-200">{{ $template->rejection_reason }}</p>@endif
-                    <div class="mt-4 flex flex-wrap gap-2">
-                        @if(($account?->provider ?? 'fake') === 'fake')
-                            <form method="POST" action="{{ route('templates.review', $template) }}">@csrf<input type="hidden" name="decision" value="approve"><button class="btn btn-secondary min-h-10 text-xs" type="submit">Marcar aprobada localmente</button></form>
-                            <form method="POST" action="{{ route('templates.review', $template) }}">@csrf<input type="hidden" name="decision" value="reject"><button class="btn btn-ghost min-h-10 text-xs" type="submit">Marcar rechazada</button></form>
-                        @else
-                            @if(!$template->meta_id)<form method="POST" action="{{ route('templates.submit', $template) }}">@csrf<button class="btn btn-secondary min-h-10 text-xs" type="submit">Enviar a Meta</button></form>@else<form method="POST" action="{{ route('templates.sync', $template) }}">@csrf<button class="btn btn-secondary min-h-10 text-xs" type="submit">Actualizar estado</button></form>@endif
-                        @endif
-                    </div>
-                </article>
-            @empty
-                <div class="empty lg:col-span-2">Crea la primera plantilla para comenzar a preparar mensajes.</div>
-            @endforelse
-        </div>
-        <details class="mt-5 rounded-xl border border-white/8 p-4">
-            <summary class="cursor-pointer font-black">Crear plantilla</summary>
-            <form method="POST" action="{{ route('templates.store') }}" class="mt-5 grid gap-4 sm:grid-cols-2">
-                @csrf
-                <div><label class="label">Nombre técnico</label><input class="input" name="technical_name" placeholder="loyalty_custom" required></div>
-                <div><label class="label">Categoría solicitada</label><select class="select" name="category"><option value="utility">Servicio</option><option value="marketing">Promociones</option></select></div>
-                <div><label class="label">Idioma</label><input class="input" name="language" value="es_PE" required></div>
-                <div><label class="label">Encabezado</label><select class="select" name="header_type"><option value="none">Sin encabezado</option><option value="text">Texto</option><option value="image">Imagen</option></select></div>
-                <div class="sm:col-span-2"><label class="label">Texto del encabezado</label><input class="input" name="header"></div>
-                <div class="sm:col-span-2"><label class="label">Cuerpo</label><textarea class="textarea" name="body" placeholder="Hola {{1}}. Tu mensaje…" required></textarea></div>
-                <div class="sm:col-span-2"><label class="label">Pie</label><input class="input" name="footer"></div>
-                @foreach(range(0, 5) as $i)<div><label class="label">Muestra {{ $i + 1 }}</label><input class="input" name="samples[]" placeholder="Valor para {{ $i + 1 }}"></div>@endforeach
-                <div class="sm:col-span-2 flex justify-end"><button class="btn btn-secondary" type="submit">Guardar borrador</button></div>
-            </form>
-        </details>
-    </section>
+    @include('settings._templates')
+    @include('settings._automations')
 
     <section id="qr" class="card scroll-mt-32">
         <div class="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">

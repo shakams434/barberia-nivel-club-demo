@@ -8,8 +8,8 @@ use App\Models\Customer;
 use App\Models\Reward;
 use App\Models\Tier;
 use App\Services\AuditService;
-use App\Services\BusinessSetupService;
 use App\Services\ConsentService;
+use App\Services\MessageAutomationService;
 use App\Services\PhoneNumberNormalizer;
 use App\Services\WhatsAppMessageService;
 use Illuminate\Database\Eloquent\Builder;
@@ -49,10 +49,11 @@ class CustomerController extends Controller
         ConsentService $consents,
         AuditService $audit,
         WhatsAppMessageService $messages,
-        BusinessSetupService $setup,
+        MessageAutomationService $automations,
     ): RedirectResponse {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'gender' => ['nullable', Rule::in(['male', 'female', 'non_binary', 'prefer_not_to_say'])],
             'phone' => ['required', 'string', 'max:30'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'loyalty_consent' => ['accepted'],
@@ -70,6 +71,7 @@ class CustomerController extends Controller
             'tier_id' => $tier?->id,
             'public_id' => (string) Str::uuid(),
             'name' => $data['name'],
+            'gender' => $data['gender'] ?? null,
             'phone_raw' => $data['phone'],
             'phone_e164' => $phone,
             'source' => 'admin',
@@ -104,28 +106,33 @@ class CustomerController extends Controller
         $audit->record('customer.created', $customer, after: ['name' => $customer->name], request: $request);
 
         $business = $request->user()->business;
-        $template = $setup->ensureTemplate($business, 'loyalty_welcome');
-        $welcome = $messages->queue(
-            $customer,
-            $template,
-            [$customer->name, $request->user()->business->name, $customer->level],
-            'customer-welcome:'.$customer->id,
-            "Hola {$customer->name}. Tu inscripción en {$request->user()->business->name} está confirmada.",
-        );
-        if ($business->whatsappAccount?->provider === 'fake' || $template->status === 'approved') {
-            $messages->attemptNow($welcome->id, true);
-        } else {
-            $welcome->update([
-                'error_code' => 'TEMPLATE_NOT_APPROVED',
-                'error_message' => 'Aprueba la plantilla de bienvenida en Meta antes de reintentar.',
-            ]);
+        $template = $automations->templateFor($business, 'customer_registered');
+        $welcome = null;
+        if ($template) {
+            $welcome = $messages->queue(
+                $customer,
+                $template,
+                [$customer->name, $business->name, $customer->level],
+                'customer-welcome:'.$customer->id,
+                "Hola {$customer->name}. Tu inscripción en {$business->name} está confirmada.",
+            );
+            if ($business->whatsappAccount?->provider === 'fake' || $template->status === 'approved') {
+                $messages->attemptNow($welcome->id, true);
+            } else {
+                $welcome->update([
+                    'error_code' => 'TEMPLATE_NOT_APPROVED',
+                    'error_message' => 'Aprueba la plantilla de bienvenida en Meta antes de reintentar.',
+                ]);
+            }
         }
 
         return redirect()->route('customers.show', $customer)->with(
             'success',
-            $welcome->fresh()->status === 'queued'
-                ? 'Cliente registrado. El mensaje de bienvenida quedó listo para reintento.'
-                : 'Cliente registrado y bienvenida procesada.',
+            ! $welcome
+                ? 'Cliente registrado. El mensaje automático de bienvenida está desactivado.'
+                : ($welcome->fresh()->status === 'queued'
+                    ? 'Cliente registrado. El mensaje de bienvenida quedó listo para reintento.'
+                    : 'Cliente registrado y bienvenida procesada.'),
         );
     }
 
@@ -166,6 +173,7 @@ class CustomerController extends Controller
         $customer = Customer::where('public_id', $customer)->firstOrFail();
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'gender' => ['nullable', Rule::in(['male', 'female', 'non_binary', 'prefer_not_to_say'])],
             'phone' => ['required', 'string', 'max:30'],
             'status' => ['required', Rule::in(['active', 'inactive', 'pending'])],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -179,6 +187,7 @@ class CustomerController extends Controller
         $before = ['name' => $customer->name, 'status' => $customer->status];
         $customer->update([
             'name' => $data['name'],
+            'gender' => $data['gender'] ?? null,
             'phone_raw' => $data['phone'],
             'phone_e164' => $phone,
             'status' => $data['status'],
@@ -208,12 +217,13 @@ class CustomerController extends Controller
         return response()->streamDownload(function () use ($customers): void {
             $output = fopen('php://output', 'wb');
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['Nombre', 'WhatsApp', 'Nivel', 'Rango', 'XP', 'Última atención', 'Fecha de registro']);
+            fputcsv($output, ['Nombre', 'WhatsApp', 'Sexo', 'Nivel', 'Rango', 'XP', 'Última atención', 'Fecha de registro']);
 
             foreach ($customers as $customer) {
                 fputcsv($output, [
                     $customer->name,
                     $customer->phone_e164,
+                    $customer->gender,
                     $customer->level,
                     $customer->tier?->name,
                     $customer->xp_total,

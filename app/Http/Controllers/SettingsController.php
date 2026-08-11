@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LoyaltyProgram;
+use App\Models\MessageAutomation;
 use App\Models\Reward;
 use App\Models\Service;
 use App\Models\Tier;
@@ -10,6 +11,7 @@ use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppTemplate;
 use App\Services\AuditService;
+use App\Services\MessageAutomationService;
 use App\Services\PhoneNumberNormalizer;
 use App\Services\TierService;
 use App\Services\WhatsApp\WhatsAppProviderManager;
@@ -26,8 +28,10 @@ use Illuminate\View\View;
 
 class SettingsController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, MessageAutomationService $automationService): View
     {
+        $templates = WhatsAppTemplate::with('automations')->latest()->get();
+
         return view('settings.index', [
             'business' => $request->user()->business,
             'program' => LoyaltyProgram::first(),
@@ -35,7 +39,13 @@ class SettingsController extends Controller
             'tiers' => Tier::orderBy('min_level')->get(),
             'rewards' => Reward::orderBy('required_level')->get(),
             'account' => WhatsAppAccount::first(),
-            'templates' => WhatsAppTemplate::latest()->get(),
+            'templates' => $templates,
+            'utilityTemplates' => $templates->where('category', 'utility')->values(),
+            'automationDefinitions' => $automationService->definitions(),
+            'automations' => MessageAutomation::with('template')->get()->keyBy('event_key'),
+            'editingTemplate' => $request->filled('edit_template')
+                ? WhatsAppTemplate::where('public_id', $request->string('edit_template'))->firstOrFail()
+                : null,
         ]);
     }
 

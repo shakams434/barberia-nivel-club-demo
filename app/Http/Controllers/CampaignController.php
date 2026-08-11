@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Campaign;
+use App\Models\Service;
 use App\Models\Tier;
 use App\Models\WhatsAppTemplate;
 use App\Services\CampaignService;
@@ -10,6 +11,7 @@ use App\Services\WhatsAppTemplateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CampaignController extends Controller
@@ -39,6 +41,8 @@ class CampaignController extends Controller
             'min_level' => $request->integer('min_level') ?: null,
             'max_level' => $request->integer('max_level') ?: null,
             'tier_id' => $request->integer('tier') ?: null,
+            'gender' => $request->string('gender')->toString() ?: null,
+            'service_id' => $request->integer('service_id') ?: null,
             'inactive_days' => $request->string('activity')->toString() === 'inactive' ? 45 : null,
             'q' => $request->string('q')->toString() ?: null,
             'selected_ids' => $request->string('selection_scope')->toString() !== 'filtered' && $selectedIds->isNotEmpty() ? $selectedIds->all() : null,
@@ -50,9 +54,12 @@ class CampaignController extends Controller
         return view('campaigns.create', [
             'templates' => WhatsAppTemplate::where('category', 'marketing')->where('status', 'approved')->get(),
             'tiers' => Tier::where('active', true)->get(),
+            'services' => Service::where('active', true)->orderBy('sort_order')->get(),
+            'audienceCandidates' => $service->eligibleCustomers()->loadMissing(['tier', 'visits', 'rewards']),
             'audienceFilters' => $audienceFilters,
             'eligibleCount' => $eligibleCount,
             'selectionScope' => $request->string('selection_scope')->toString() === 'filtered' ? 'filtered' : 'selected',
+            'audienceType' => old('audience_type', ($selectedIds->isNotEmpty() ? 'selection' : 'filter')),
         ]);
     }
 
@@ -64,6 +71,8 @@ class CampaignController extends Controller
             'min_level' => ['nullable', 'integer', 'min:1'],
             'max_level' => ['nullable', 'integer', 'gte:min_level'],
             'tier_id' => ['nullable', 'integer'],
+            'gender' => ['nullable', 'in:male,female,non_binary,prefer_not_to_say'],
+            'service_id' => ['nullable', 'integer'],
             'inactive_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
             'reward_pending' => ['nullable', 'boolean'],
             'audience_type' => ['nullable', 'in:filter,selection'],
@@ -73,6 +82,9 @@ class CampaignController extends Controller
             'variables' => ['required', 'array', 'min:1'],
             'variables.*' => ['required', 'string', 'max:240'],
         ]);
+        if (($data['audience_type'] ?? 'filter') === 'selection' && empty($data['selected_customer_ids'])) {
+            throw ValidationException::withMessages(['selected_customer_ids' => 'Selecciona al menos una persona para esta campaña.']);
+        }
         $template = WhatsAppTemplate::findOrFail($data['whatsapp_template_id']);
         $templates->validateVariables($template->body, $data['variables']);
 
@@ -84,6 +96,8 @@ class CampaignController extends Controller
                 'min_level' => $data['min_level'] ?? null,
                 'max_level' => $data['max_level'] ?? null,
                 'tier_id' => $data['tier_id'] ?? null,
+                'gender' => $data['gender'] ?? null,
+                'service_id' => $data['service_id'] ?? null,
                 'inactive_days' => $data['inactive_days'] ?? null,
                 'reward_pending' => $request->boolean('reward_pending'),
                 'selected_ids' => $data['selected_customer_ids'] ?? null,

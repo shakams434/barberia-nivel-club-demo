@@ -18,7 +18,7 @@ class WhatsAppMessageService
         private readonly WhatsAppTemplateService $templates,
         private readonly ConsentService $consents,
         private readonly LevelCardGenerator $cards,
-        private readonly BusinessSetupService $setup,
+        private readonly MessageAutomationService $automations,
     ) {}
 
     public function queue(
@@ -116,8 +116,11 @@ class WhatsAppMessageService
         }
 
         $levelUp = $customer->level > $previousLevel;
-        $templateName = $levelUp ? 'loyalty_level_up' : 'loyalty_xp_update';
-        $template = $this->setup->ensureTemplate($customer->business, $templateName);
+        $eventKey = $levelUp ? 'level_increased' : 'visit_registered';
+        $template = $this->automations->templateFor($customer->business, $eventKey);
+        if (! $template) {
+            return null;
+        }
         $reward = $unlockedRewardIds ? $customer->rewards()->with('reward')->whereIn('id', $unlockedRewardIds)->first()?->reward : null;
         $progress = $customer->progressPercent($customer->business->loyaltyProgram->xp_per_level);
         $cardPath = $levelUp ? $this->cards->generate($customer, $reward) : null;

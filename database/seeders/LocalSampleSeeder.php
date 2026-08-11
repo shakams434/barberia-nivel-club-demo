@@ -11,6 +11,7 @@ use App\Models\Customer;
 use App\Models\CustomerReward;
 use App\Models\LoyaltyProgram;
 use App\Models\LoyaltyTransaction;
+use App\Models\MessageAutomation;
 use App\Models\Reward;
 use App\Models\RewardRedemption;
 use App\Models\Service;
@@ -20,6 +21,7 @@ use App\Models\Visit;
 use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppTemplate;
+use App\Services\MessageAutomationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -119,6 +121,14 @@ class LocalSampleSeeder extends Seeder
         });
 
         $templates = $this->createTemplates($business);
+        foreach (MessageAutomationService::DEFINITIONS as $eventKey => $definition) {
+            MessageAutomation::withoutGlobalScope('business')->create([
+                'business_id' => $business->id,
+                'whatsapp_template_id' => $templates[$definition['default_template']]->id,
+                'event_key' => $eventKey,
+                'active' => true,
+            ]);
+        }
         $account = WhatsAppAccount::withoutGlobalScope('business')->create([
             'business_id' => $business->id,
             'provider' => 'fake',
@@ -139,6 +149,7 @@ class LocalSampleSeeder extends Seeder
                 'tier_id' => $tier->id,
                 'public_id' => (string) Str::uuid(),
                 'name' => $name,
+                'gender' => in_array($index, [1, 10, 11], true) ? 'female' : 'male',
                 'phone_raw' => '900000'.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
                 'phone_e164' => '+51900000'.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
                 'source' => $index % 3 === 0 ? 'whatsapp_qr' : 'admin',
@@ -300,6 +311,11 @@ class LocalSampleSeeder extends Seeder
                 "Subiste de nivel, {{1}}.\n\nAhora eres Nivel {{2}} · {{3}} en {{4}}.\nTu recompensa disponible es: {{5}}.",
                 ['Marco', '5', 'Plata', 'Barbería Central', 'Upgrade Plata'],
             ],
+            'loyalty_reward_redeemed' => [
+                'utility',
+                'Hola {{1}}. Confirmamos el canje de {{2}} en {{3}}. Tu XP histórico se mantiene.',
+                ['Marco', 'Barba de cortesía', 'Barbería Central'],
+            ],
             'campaign_level_discount' => [
                 'marketing',
                 "Hola {{1}}.\n\nPor ser Nivel {{2}} · {{3}}, tienes {{4}}% de descuento en {{5}} hasta el {{6}}.\n\nReserva tu atención desde el botón.",
@@ -313,6 +329,13 @@ class LocalSampleSeeder extends Seeder
                 'business_id' => $business->id,
                 'public_id' => (string) Str::uuid(),
                 'technical_name' => $name,
+                'display_name' => match ($name) {
+                    'loyalty_welcome' => 'Bienvenida al programa',
+                    'loyalty_xp_update' => 'Resumen después de una atención',
+                    'loyalty_level_up' => 'Aviso de subida de nivel',
+                    'loyalty_reward_redeemed' => 'Confirmación de canje',
+                    'campaign_level_discount' => 'Promoción por nivel',
+                },
                 'category' => $category,
                 'language' => 'es_PE',
                 'header_type' => $name === 'loyalty_level_up' ? 'image' : 'none',

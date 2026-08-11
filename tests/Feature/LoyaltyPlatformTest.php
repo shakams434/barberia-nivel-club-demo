@@ -7,15 +7,18 @@ use App\Jobs\ProcessCampaignBatch;
 use App\Jobs\ProcessInboundWhatsAppMessage;
 use App\Jobs\SendWhatsAppMessage;
 use App\Models\Business;
+use App\Models\Campaign;
 use App\Models\Consent;
 use App\Models\Customer;
 use App\Models\CustomerReward;
 use App\Models\InboundMessage;
 use App\Models\LoyaltyProgram;
+use App\Models\MessageAutomation;
 use App\Models\Reward;
 use App\Models\Service;
 use App\Models\Tier;
 use App\Models\User;
+use App\Models\Visit;
 use App\Models\WebhookEvent;
 use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppMessage;
@@ -26,6 +29,7 @@ use App\Services\ConsentService;
 use App\Services\InboundMessageProcessor;
 use App\Services\LevelCardGenerator;
 use App\Services\LoyaltyEngine;
+use App\Services\MessageAutomationService;
 use App\Services\WhatsAppMessageService;
 use App\Services\WhatsAppTemplateService;
 use App\Support\Tenancy\TenantContext;
@@ -392,6 +396,85 @@ class LoyaltyPlatformTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
         $service->validateVariables('Hola {{2}}', ['Ana']);
+    }
+
+    public function test_admin_can_create_a_clear_template_and_manage_its_automation(): void
+    {
+        $this->actingAs($this->admin)->post(route('templates.store'), [
+            'display_name' => 'Bienvenida personalizada',
+            'technical_name' => 'welcome_custom',
+            'category' => 'utility',
+            'language' => 'es_PE',
+            'header_type' => 'none',
+            'body' => 'Hola {{1}}, te damos la bienvenida a {{2}} en el nivel {{3}}.',
+            'samples' => ['Ana', 'Barbería Prueba', '1'],
+        ])->assertSessionHasNoErrors();
+
+        $template = WhatsAppTemplate::where('technical_name', 'welcome_custom')->firstOrFail();
+        $this->assertSame('Bienvenida personalizada', $template->display_name);
+        $this->assertSame([1, 2, 3], $template->variables);
+
+        $this->actingAs($this->admin)->put(route('automations.update'), [
+            'event_key' => 'customer_registered',
+            'whatsapp_template_id' => $template->id,
+            'active' => '1',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame($template->id, app(MessageAutomationService::class)->templateFor($this->business, 'customer_registered')?->id);
+        $this->actingAs($this->admin)->delete(route('automations.disable', 'customer_registered'))->assertSessionHasNoErrors();
+        $this->assertFalse(MessageAutomation::where('event_key', 'customer_registered')->firstOrFail()->active);
+        $this->assertNull(app(MessageAutomationService::class)->templateFor($this->business, 'customer_registered'));
+    }
+
+    public function test_campaign_audience_supports_specific_people_gender_and_service_filters(): void
+    {
+        $selected = $this->customer(['name' => 'Camila', 'gender' => 'female']);
+        $other = $this->customer(['name' => 'Marco', 'gender' => 'male']);
+        foreach ([$selected, $other] as $customer) {
+            app(ConsentService::class)->record($customer, Consent::MARKETING, true, 'admin', $this->admin);
+        }
+        Visit::create([
+            'business_id' => $this->business->id,
+            'customer_id' => $selected->id,
+            'service_id' => $this->service->id,
+            'registered_by' => $this->admin->id,
+            'public_id' => (string) Str::uuid(),
+            'idempotency_key' => 'audience-service-visit',
+            'xp_awarded' => 100,
+            'visited_at' => now(),
+        ]);
+
+        $eligible = app(CampaignService::class)->eligibleCustomers([
+            'gender' => 'female',
+            'service_id' => $this->service->id,
+        ]);
+        $this->assertSame([$selected->id], $eligible->pluck('id')->all());
+
+        $this->actingAs($this->admin)->post(route('campaigns.store'), [
+            'name' => 'Mensaje puntual',
+            'whatsapp_template_id' => $this->marketingTemplate->id,
+            'audience_type' => 'selection',
+            'selected_customer_ids' => [$selected->id],
+            'variables' => ['{customer_name}', '{level}', '{tier}', '15', 'Corte', '31/12/2026'],
+        ])->assertSessionHasNoErrors();
+
+        $campaign = Campaign::latest()->firstOrFail();
+        $this->assertSame('selection', $campaign->audience_type);
+        $this->assertSame([$selected->id], $campaign->filters['selected_ids']);
+    }
+
+    public function test_campaign_and_message_configuration_pages_render_the_new_admin_guidance(): void
+    {
+        $this->actingAs($this->admin)->get(route('campaigns.create'))
+            ->assertOk()
+            ->assertSeeText('Personas específicas')
+            ->assertSeeText('Estos criterios solo eligen destinatarios. No cambian el XP, nivel ni rango de nadie.');
+
+        $this->actingAs($this->admin)->get(route('settings.index'))
+            ->assertOk()
+            ->assertSeeText('Plantillas de mensajes')
+            ->assertSeeText('Mensajes automáticos')
+            ->assertSeeText('Quitar relación y desactivar');
     }
 
     public function test_campaign_excludes_without_consent_avoids_duplicates_and_batches(): void

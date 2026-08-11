@@ -7,7 +7,7 @@
     $recipientLabels = ['queued' => 'En cola', 'submitted' => 'Preparado', 'sent' => 'Enviado', 'delivered' => 'Entregado', 'read' => 'Leído', 'failed' => 'Fallido', 'cancelled' => 'Cancelado', 'excluded' => 'Excluido', 'opt_out' => 'Sin autorización'];
 @endphp
 <div class="page-heading">
-    <div><p class="eyebrow">Detalle de campaña</p><div class="flex flex-wrap items-center gap-3"><h1 class="title">{{ $campaign->name }}</h1><span class="badge {{ $campaign->status === 'completed' ? 'badge-success' : ($campaign->status === 'cancelled' ? 'badge-danger' : 'badge-neutral') }}">{{ $statusLabels[$campaign->status] ?? $campaign->status }}</span></div><p class="subtitle">{{ $campaign->template->technical_name }} · {{ $campaign->template->category === 'marketing' ? 'Promociones' : 'Servicio' }}</p></div>
+    <div><p class="eyebrow">Detalle de campaña</p><div class="flex flex-wrap items-center gap-3"><h1 class="title">{{ $campaign->name }}</h1><span class="badge {{ $campaign->status === 'completed' ? 'badge-success' : ($campaign->status === 'cancelled' ? 'badge-danger' : 'badge-neutral') }}">{{ $statusLabels[$campaign->status] ?? $campaign->status }}</span></div><p class="subtitle">{{ $campaign->template->display_name ?: $campaign->template->technical_name }} · Promoción por WhatsApp</p></div>
     <a class="btn btn-ghost" href="{{ route('campaigns.index') }}">Volver</a>
 </div>
 

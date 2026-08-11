@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToBusiness;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WhatsAppTemplate extends Model
 {
@@ -12,7 +13,7 @@ class WhatsAppTemplate extends Model
     protected $table = 'whatsapp_templates';
 
     protected $fillable = [
-        'business_id', 'public_id', 'technical_name', 'category', 'language', 'header_type',
+        'business_id', 'public_id', 'technical_name', 'display_name', 'category', 'language', 'header_type',
         'header', 'body', 'footer', 'buttons', 'variables', 'samples', 'meta_id', 'status',
         'rejection_reason', 'last_synced_at',
     ];
@@ -35,5 +36,10 @@ class WhatsAppTemplate extends Model
     public function isApprovedMarketing(): bool
     {
         return $this->status === 'approved' && $this->category === 'marketing';
+    }
+
+    public function automations(): HasMany
+    {
+        return $this->hasMany(MessageAutomation::class, 'whatsapp_template_id');
     }
 }

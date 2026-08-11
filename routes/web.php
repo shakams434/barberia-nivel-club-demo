@@ -8,6 +8,7 @@ use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JoinController;
+use App\Http\Controllers\MessageAutomationController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\RewardRedemptionController;
 use App\Http\Controllers\SettingsController;
@@ -75,7 +76,10 @@ Route::middleware(['auth', 'tenant'])->group(function (): void {
     Route::get('/configuracion/whatsapp/health', [SettingsController::class, 'health'])->name('settings.whatsapp.health');
     Route::post('/configuracion/whatsapp/probar', [SettingsController::class, 'testWhatsApp'])->name('settings.whatsapp.test');
     Route::post('/configuracion/plantillas', [TemplateController::class, 'store'])->name('templates.store');
+    Route::put('/configuracion/plantillas/{template}', [TemplateController::class, 'update'])->name('templates.update');
     Route::post('/configuracion/plantillas/{template}/revision', [TemplateController::class, 'review'])->name('templates.review');
     Route::post('/configuracion/plantillas/{template}/enviar', [TemplateController::class, 'submit'])->name('templates.submit');
     Route::post('/configuracion/plantillas/{template}/sincronizar', [TemplateController::class, 'sync'])->name('templates.sync');
+    Route::put('/configuracion/automatizaciones', [MessageAutomationController::class, 'update'])->name('automations.update');
+    Route::delete('/configuracion/automatizaciones/{eventKey}', [MessageAutomationController::class, 'disable'])->name('automations.disable');
 });

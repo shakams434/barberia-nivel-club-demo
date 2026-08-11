@@ -134,11 +134,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const update = () => {
             let body = select?.selectedOptions?.[0]?.dataset.body || 'Selecciona una plantilla para ver el mensaje.';
             const expected = Number(select?.selectedOptions?.[0]?.dataset.variables || 0);
+            let samples = [];
+            try { samples = JSON.parse(select?.selectedOptions?.[0]?.dataset.samples || '[]'); } catch { samples = []; }
             variables.forEach((input, index) => {
                 const field = input.closest('[data-variable-field]');
+                const label = field ? qs('[data-variable-label]', field) : null;
                 const active = index < expected;
                 input.disabled = !active;
                 field?.classList.toggle('hidden', !active);
+                input.placeholder = samples[index] ? `Ejemplo: ${samples[index]}` : `Valor para {{${index + 1}}}`;
+                if (label) label.textContent = `Dato ${index + 1} · reemplaza {{${index + 1}}}`;
                 body = body.replaceAll(`{{${index + 1}}}`, input.value || `{{${index + 1}}}`);
             });
             if (preview) preview.textContent = body;
@@ -149,17 +154,121 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     qsa('[data-campaign-audience]').forEach((audience) => {
-        const checks = qsa('input[type="checkbox"][name="customer_ids[]"]', audience);
-        const count = qs('[data-audience-count]', audience);
-        const refresh = () => {
-            if (count) count.textContent = checks.filter((item) => item.checked).length;
+        const modes = qsa('[data-audience-mode]', audience);
+        if (modes.length === 0) {
+            const legacyChecks = qsa('input[type="checkbox"][name="customer_ids[]"]', audience);
+            const legacyCount = qs('[data-audience-count]', audience);
+            const legacyRefresh = () => { if (legacyCount) legacyCount.textContent = legacyChecks.filter((item) => item.checked).length; };
+            qsa('[data-audience-action]', audience).forEach((button) => button.addEventListener('click', () => {
+                const checked = button.dataset.audienceAction === 'all';
+                legacyChecks.forEach((item) => { item.checked = checked; });
+                legacyRefresh();
+            }));
+            legacyChecks.forEach((item) => item.addEventListener('change', legacyRefresh));
+            legacyRefresh();
+            return;
+        }
+        const panels = qsa('[data-audience-panel]', audience);
+        const customers = qsa('[data-audience-customer]', audience);
+        const checks = qsa('[data-select-customer]', audience);
+        const selectionCount = qs('[data-selection-count]', audience);
+        const filteredCount = qs('[data-filtered-count]', audience);
+        const search = qs('[data-audience-search]', audience);
+        const filters = qsa('[data-audience-filter]', audience);
+
+        const refreshSelection = () => {
+            if (selectionCount) selectionCount.textContent = checks.filter((item) => item.checked).length;
         };
+
+        const refreshSearch = () => {
+            const term = (search?.value || '').trim().toLocaleLowerCase();
+            customers.forEach((customer) => customer.classList.toggle('hidden', term !== '' && !customer.dataset.search.includes(term)));
+        };
+
+        const refreshFilters = () => {
+            const value = (name) => qs(`[name="${name}"]`, audience)?.value || '';
+            const gender = value('gender');
+            const tier = value('tier_id');
+            const service = value('service_id');
+            const inactive = Number(value('inactive_days') || 0);
+            const minLevel = Number(value('min_level') || 0);
+            const maxLevel = Number(value('max_level') || 0);
+            const reward = qs('[name="reward_pending"]', audience)?.checked || false;
+            const matches = customers.filter((customer) => (
+                (!gender || customer.dataset.gender === gender)
+                && (!tier || customer.dataset.tier === tier)
+                && (!service || customer.dataset.services.includes(`,${service},`))
+                && (!inactive || Number(customer.dataset.inactive) >= inactive)
+                && (!minLevel || Number(customer.dataset.level) >= minLevel)
+                && (!maxLevel || Number(customer.dataset.level) <= maxLevel)
+                && (!reward || customer.dataset.reward === '1')
+            ));
+            if (filteredCount) filteredCount.textContent = matches.length;
+        };
+
+        const refreshMode = () => {
+            const mode = modes.find((item) => item.checked)?.value || 'filter';
+            panels.forEach((panel) => {
+                const active = panel.dataset.audiencePanel === mode;
+                panel.classList.toggle('hidden', !active);
+                qsa('input, select', panel).forEach((control) => { control.disabled = !active; });
+            });
+            if (mode === 'selection') refreshSelection(); else refreshFilters();
+        };
+
         qsa('[data-audience-action]', audience).forEach((button) => button.addEventListener('click', () => {
             const checked = button.dataset.audienceAction === 'all';
             checks.forEach((item) => { item.checked = checked; });
+            refreshSelection();
+        }));
+        modes.forEach((mode) => mode.addEventListener('change', refreshMode));
+        checks.forEach((item) => item.addEventListener('change', refreshSelection));
+        filters.forEach((filter) => filter.addEventListener('input', refreshFilters));
+        filters.forEach((filter) => filter.addEventListener('change', refreshFilters));
+        search?.addEventListener('input', refreshSearch);
+        refreshMode();
+        refreshSearch();
+    });
+
+    qsa('[data-template-editor]').forEach((editor) => {
+        const body = qs('[data-template-body]', editor);
+        const preview = qs('[data-template-editor-preview]', editor);
+        const sampleFields = qsa('[data-template-sample-field]', editor);
+        const technical = qs('[data-template-technical]', editor);
+        const display = qs('[data-template-display]', editor);
+
+        const refresh = () => {
+            const text = body?.value || 'Escribe el mensaje para ver la vista previa.';
+            const matches = [...text.matchAll(/\{\{(\d+)\}\}/g)].map((match) => Number(match[1]));
+            const count = matches.length ? Math.max(...matches) : 0;
+            sampleFields.forEach((field, index) => {
+                const active = index < count;
+                field.classList.toggle('hidden', !active);
+                qs('input', field).disabled = !active;
+            });
+            let rendered = text;
+            sampleFields.forEach((field, index) => {
+                const sample = qs('input', field)?.value || `{{${index + 1}}}`;
+                rendered = rendered.replaceAll(`{{${index + 1}}}`, sample);
+            });
+            if (preview) preview.textContent = rendered;
+        };
+
+        display?.addEventListener('input', () => {
+            if (!technical || technical.dataset.touched === 'true') return;
+            technical.value = display.value.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        });
+        technical?.addEventListener('input', () => { technical.dataset.touched = 'true'; });
+        body?.addEventListener('input', refresh);
+        sampleFields.forEach((field) => qs('input', field)?.addEventListener('input', refresh));
+        qsa('[data-insert-variable]', editor).forEach((button) => button.addEventListener('click', () => {
+            if (!body) return;
+            const next = Math.max(0, ...[...body.value.matchAll(/\{\{(\d+)\}\}/g)].map((match) => Number(match[1]))) + 1;
+            const token = `{{${next}}}`;
+            body.setRangeText(token, body.selectionStart, body.selectionEnd, 'end');
+            body.focus();
             refresh();
         }));
-        checks.forEach((item) => item.addEventListener('change', refresh));
         refresh();
     });
 
