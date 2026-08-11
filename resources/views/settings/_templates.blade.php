@@ -10,27 +10,55 @@
 @endphp
 <section id="plantillas" class="card scroll-mt-32">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div><p class="eyebrow">Contenido de WhatsApp</p><h2 class="mt-1 text-xl font-black">Plantillas de mensajes</h2><p class="subtitle max-w-3xl">Una plantilla define qué verá el cliente. Después de aprobarla, podrás usarla en una campaña o asignarla a una acción automática.</p></div>
+        <div><p class="eyebrow">Contenido de WhatsApp</p><h2 class="mt-1 text-xl font-black">Biblioteca de mensajes</h2><p class="subtitle max-w-3xl">Aquí editas lo que leerá el cliente. La forma de envío se configura después: los mensajes de servicio pueden conectarse a una acción automática; las promociones se usan desde Campañas.</p></div>
         <a class="btn btn-secondary" href="#editor-plantilla">＋ Nueva plantilla</a>
     </div>
 
-    <div class="mt-5 grid gap-3 sm:grid-cols-3">
-        <div class="rounded-xl border border-white/8 p-3"><span class="badge badge-neutral">1</span><strong class="ml-2 text-sm">Escribe y prueba</strong><p class="mt-2 text-xs leading-5 text-[#858b95]">Usa ejemplos para comprobar cómo se verá.</p></div>
-        <div class="rounded-xl border border-white/8 p-3"><span class="badge badge-neutral">2</span><strong class="ml-2 text-sm">Aprueba en Meta</strong><p class="mt-2 text-xs leading-5 text-[#858b95]">Meta valida el contenido y su categoría.</p></div>
-        <div class="rounded-xl border border-white/8 p-3"><span class="badge badge-neutral">3</span><strong class="ml-2 text-sm">Elige dónde se usa</strong><p class="mt-2 text-xs leading-5 text-[#858b95]">Campaña manual o automatización por acción.</p></div>
+    <div class="mt-5 grid gap-3 sm:grid-cols-2">
+        <a class="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.03] p-4 transition hover:border-emerald-300/30" href="#automatizaciones"><span class="text-2xl font-black">{{ $templates->where('category', 'utility')->count() }}</span><strong class="ml-2 text-sm">mensajes de servicio</strong><p class="mt-2 text-xs leading-5 text-[#858b95]">Pueden enviarse automáticamente cuando ocurre una acción.</p></a>
+        <a class="rounded-xl border border-[#d7b52e]/20 bg-[#d7b52e]/[0.04] p-4 transition hover:border-[#d7b52e]/40" href="{{ route('campaigns.index') }}"><span class="text-2xl font-black">{{ $templates->where('category', 'marketing')->count() }}</span><strong class="ml-2 text-sm">promociones</strong><p class="mt-2 text-xs leading-5 text-[#858b95]">Se envían desde Campañas eligiendo audiencia y fecha.</p></a>
     </div>
 
-    <div class="mt-5 grid gap-3 lg:grid-cols-2">
-        @forelse($templates as $template)
+    @foreach([
+        ['category' => 'utility', 'title' => 'Mensajes de servicio', 'description' => 'Contenido disponible para bienvenida, atenciones, niveles, canjes y otras acciones automáticas.'],
+        ['category' => 'marketing', 'title' => 'Promociones para campañas', 'description' => 'No se disparan por una acción. Se envían a una audiencia autorizada desde el módulo Campañas.'],
+    ] as $group)
+        <div class="mt-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div><h3 class="font-black">{{ $group['title'] }}</h3><p class="mt-1 text-xs leading-5 text-[#858b95]">{{ $group['description'] }}</p></div>
+            <span class="badge badge-neutral">{{ $templates->where('category', $group['category'])->count() }} mensaje{{ $templates->where('category', $group['category'])->count() === 1 ? '' : 's' }}</span>
+        </div>
+        <div class="mt-3 grid gap-3 lg:grid-cols-2">
+        @forelse($templates->where('category', $group['category']) as $template)
             @php
                 $renderedBody = $template->body;
                 foreach(array_values($template->samples ?? []) as $index => $sample) $renderedBody = str_replace('{{'.($index + 1).'}}', $sample, $renderedBody);
                 $activeUses = $template->automations->where('active', true)->pluck('event_key');
+                $inactiveUses = $template->automations->where('active', false)->pluck('event_key');
             @endphp
             <article class="card-soft flex flex-col">
                 <div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><h3 class="font-black">{{ $template->display_name ?: $template->technical_name }}</h3><p class="mt-0.5 truncate text-[11px] text-[#737984]">Meta: {{ $template->technical_name }} · {{ $template->language }}</p></div><span class="badge {{ $template->status === 'approved' ? 'badge-success' : ($template->status === 'rejected' ? 'badge-danger' : 'badge-warning') }}">{{ $templateStatusLabels[$template->status] ?? $template->status }}</span></div>
                 <div class="mt-3 rounded-2xl bg-[#0d1712] p-3"><p class="whitespace-pre-line text-xs leading-5 text-[#d7e7dc]">{{ $renderedBody }}</p></div>
-                <div class="mt-3 flex flex-wrap gap-1.5"><span class="badge badge-neutral">{{ $template->category === 'marketing' ? 'Campañas promocionales' : 'Mensajes de servicio' }}</span>@foreach($activeUses as $eventKey)<span class="badge badge-success">Automática: {{ $automationDefinitions[$eventKey]['name'] ?? $eventKey }}</span>@endforeach</div>
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                    @if($template->category === 'marketing')
+                        <span class="badge badge-warning">Solo campañas · no automático</span>
+                    @else
+                        <span class="badge badge-neutral">Mensaje de servicio</span>
+                        @foreach($activeUses as $eventKey)<span class="badge badge-success">Automático: {{ $automationDefinitions[$eventKey]['name'] ?? $eventKey }}</span>@endforeach
+                        @foreach($inactiveUses as $eventKey)<span class="badge badge-neutral">Automatización desactivada: {{ $automationDefinitions[$eventKey]['name'] ?? $eventKey }}</span>@endforeach
+                        @if($activeUses->isEmpty() && $inactiveUses->isEmpty())<span class="badge badge-neutral">Disponible para asignar</span>@endif
+                    @endif
+                </div>
+                <div class="mt-3 rounded-xl border border-white/8 p-3 text-xs leading-5 text-[#8f959f]">
+                    @if($template->category === 'marketing')
+                        <strong class="text-white">¿Cómo se envía?</strong> Crea una campaña, elige los clientes y programa la fecha. <a class="ml-1 font-black text-[#e2c541]" href="{{ route('campaigns.create') }}">Usar en una campaña →</a>
+                    @elseif($activeUses->isNotEmpty())
+                        <strong class="text-white">Envío actual:</strong> esta plantilla ya está conectada a {{ $activeUses->count() }} acción{{ $activeUses->count() === 1 ? '' : 'es' }} automática{{ $activeUses->count() === 1 ? '' : 's' }}. <a class="ml-1 font-black text-emerald-200" href="#automatizaciones">Administrar →</a>
+                    @elseif($inactiveUses->isNotEmpty())
+                        <strong class="text-white">Envío detenido:</strong> puede volver a activarse en Automatizaciones. <a class="ml-1 font-black text-[#e2c541]" href="#automatizaciones">Activar →</a>
+                    @else
+                        <strong class="text-white">Sin uso automático:</strong> puedes asignarla a una acción compatible en Automatizaciones. <a class="ml-1 font-black text-[#e2c541]" href="#automatizaciones">Configurar →</a>
+                    @endif
+                </div>
                 @if($template->rejection_reason)<p class="mt-3 text-xs text-rose-200">{{ $template->rejection_reason }}</p>@endif
                 <div class="mt-auto flex flex-wrap gap-2 pt-4">
                     @if(in_array($template->status, ['draft', 'rejected'], true))
@@ -39,8 +67,8 @@
                         <a class="btn btn-ghost min-h-10 text-xs" href="{{ route('settings.index', ['version_template' => $template->public_id]) }}#editor-plantilla">Editar mensaje</a>
                     @endif
                     @if(($account?->provider ?? 'fake') === 'fake')
-                        <form method="POST" action="{{ route('templates.review', $template) }}">@csrf<input type="hidden" name="decision" value="approve"><button class="btn btn-secondary min-h-10 text-xs" type="submit">Aprobar en demo</button></form>
-                        <form method="POST" action="{{ route('templates.review', $template) }}">@csrf<input type="hidden" name="decision" value="reject"><button class="btn btn-ghost min-h-10 text-xs" type="submit">Marcar rechazada</button></form>
+                        @if($template->status !== 'approved')<form method="POST" action="{{ route('templates.review', $template) }}">@csrf<input type="hidden" name="decision" value="approve"><button class="btn btn-secondary min-h-10 text-xs" type="submit">Aprobar en demo</button></form>@endif
+                        @if($template->status !== 'rejected')<form method="POST" action="{{ route('templates.review', $template) }}">@csrf<input type="hidden" name="decision" value="reject"><button class="btn btn-ghost min-h-10 text-xs" type="submit">Marcar rechazada</button></form>@endif
                     @else
                         @if(!$template->meta_id)<form method="POST" action="{{ route('templates.submit', $template) }}">@csrf<button class="btn btn-secondary min-h-10 text-xs" type="submit">Enviar a Meta</button></form>@else<form method="POST" action="{{ route('templates.sync', $template) }}">@csrf<button class="btn btn-secondary min-h-10 text-xs" type="submit">Actualizar estado</button></form>@endif
                     @endif
@@ -48,9 +76,10 @@
                 @if(in_array($template->status, ['approved', 'pending'], true))<p class="mt-3 text-[11px] leading-5 text-[#777d87]">Al editar se crea una nueva versión. Este mensaje seguirá funcionando hasta que apruebes el reemplazo.</p>@endif
             </article>
         @empty
-            <div class="empty lg:col-span-2">Crea la primera plantilla para comenzar.</div>
+            <div class="empty lg:col-span-2">No hay mensajes en esta categoría.</div>
         @endforelse
-    </div>
+        </div>
+    @endforeach
 
     <details id="editor-plantilla" class="mt-5 scroll-mt-32 rounded-2xl border border-white/10 p-4" @if($editingTemplate || $versioningTemplate || $errors->hasAny(['display_name','technical_name','category','body','samples.*','template'])) open @endif>
         <summary class="cursor-pointer font-black">{{ $editingTemplate ? 'Editar mensaje' : ($versioningTemplate ? 'Crear versión editable' : 'Crear una plantilla nueva') }}</summary>

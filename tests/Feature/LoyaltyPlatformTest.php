@@ -500,6 +500,12 @@ class LoyaltyPlatformTest extends TestCase
             'active' => true,
         ]);
         $this->assertSame($template->id, app(MessageAutomationService::class)->templateFor($this->business, 'marketing_opted_out')?->id);
+
+        $this->actingAs($this->admin)->get(route('settings.index'))
+            ->assertOk()
+            ->assertSeeText('acciones configuradas')
+            ->assertSeeText('Las promociones no aparecen aquí porque se envían desde Campañas')
+            ->assertDontSeeText('Añadir automatización');
     }
 
     public function test_configured_opt_out_automation_replaces_the_plain_salir_response(): void
@@ -581,8 +587,11 @@ class LoyaltyPlatformTest extends TestCase
 
         $this->actingAs($this->admin)->get(route('settings.index'))
             ->assertOk()
-            ->assertSeeText('Plantillas de mensajes')
-            ->assertSeeText('Mensajes automáticos')
+            ->assertSeeText('Biblioteca de mensajes')
+            ->assertSeeText('Mensajes de servicio')
+            ->assertSeeText('Promociones para campañas')
+            ->assertSeeText('Solo campañas · no automático')
+            ->assertSeeText('Automatizaciones')
             ->assertSeeText('Añadir automatización');
     }
 
