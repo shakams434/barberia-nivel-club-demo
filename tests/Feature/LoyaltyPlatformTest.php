@@ -426,6 +426,54 @@ class LoyaltyPlatformTest extends TestCase
         $this->assertNull(app(MessageAutomationService::class)->templateFor($this->business, 'customer_registered'));
     }
 
+    public function test_admin_can_edit_an_approved_message_as_a_safe_new_version(): void
+    {
+        $source = $this->template(
+            'welcome_original',
+            'utility',
+            'Hola {{1}}. Bienvenido a {{2}} en el nivel {{3}}.',
+            ['Ana', 'Barbería Prueba', '1'],
+        );
+        $source->update(['display_name' => 'Bienvenida original']);
+        $automation = MessageAutomation::create([
+            'business_id' => $this->business->id,
+            'whatsapp_template_id' => $source->id,
+            'event_key' => 'customer_registered',
+            'active' => true,
+        ]);
+
+        $this->actingAs($this->admin)->get(route('settings.index', ['version_template' => $source->public_id]))
+            ->assertOk()
+            ->assertSeeText('Crear versión editable')
+            ->assertSeeText('La versión actual no cambia')
+            ->assertSee('welcome_original_v2');
+
+        $this->actingAs($this->admin)->post(route('templates.store'), [
+            'replaces_template' => $source->public_id,
+            'display_name' => 'Bienvenida original · nueva versión',
+            'technical_name' => 'welcome_original_v2',
+            'category' => 'utility',
+            'language' => 'es_PE',
+            'header_type' => 'none',
+            'body' => 'Hola {{1}}. Qué gusto tenerte en {{2}}. Empiezas en el nivel {{3}}.',
+            'samples' => ['Ana', 'Barbería Prueba', '1'],
+        ])->assertSessionHasNoErrors();
+
+        $replacement = WhatsAppTemplate::where('technical_name', 'welcome_original_v2')->firstOrFail();
+        $this->assertSame($source->id, $replacement->replaces_template_id);
+        $this->assertSame('draft', $replacement->status);
+        $this->assertSame($source->id, $automation->fresh()->whatsapp_template_id);
+
+        $this->actingAs($this->admin)->post(route('templates.review', $replacement), [
+            'decision' => 'approve',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('approved', $replacement->fresh()->status);
+        $this->assertSame($replacement->id, $automation->fresh()->whatsapp_template_id);
+        $this->assertSame('approved', $source->fresh()->status);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'whatsapp_template.version_activated']);
+    }
+
     public function test_admin_can_add_a_fifth_supported_automation_from_the_catalog(): void
     {
         $template = $this->template(

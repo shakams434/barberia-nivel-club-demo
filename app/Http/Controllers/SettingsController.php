@@ -36,6 +36,12 @@ class SettingsController extends Controller
         $configuredDefinitions = $definitions->filter(
             fn (array $definition, string $eventKey): bool => $definition['default_enabled'] || $automations->has($eventKey)
         );
+        $editingTemplate = $request->filled('edit_template')
+            ? WhatsAppTemplate::where('public_id', $request->string('edit_template'))->firstOrFail()
+            : null;
+        $versioningTemplate = $request->filled('version_template')
+            ? WhatsAppTemplate::where('public_id', $request->string('version_template'))->firstOrFail()
+            : null;
 
         return view('settings.index', [
             'business' => $request->user()->business,
@@ -49,10 +55,22 @@ class SettingsController extends Controller
             'automationDefinitions' => $configuredDefinitions->all(),
             'availableAutomationDefinitions' => $definitions->except($configuredDefinitions->keys())->all(),
             'automations' => $automations,
-            'editingTemplate' => $request->filled('edit_template')
-                ? WhatsAppTemplate::where('public_id', $request->string('edit_template'))->firstOrFail()
-                : null,
+            'editingTemplate' => $editingTemplate,
+            'versioningTemplate' => $versioningTemplate,
+            'versionTechnicalName' => $versioningTemplate ? $this->nextTemplateTechnicalName($versioningTemplate) : null,
         ]);
+    }
+
+    private function nextTemplateTechnicalName(WhatsAppTemplate $template): string
+    {
+        $base = preg_replace('/_v\d+$/', '', $template->technical_name);
+        $version = 2;
+
+        do {
+            $candidate = $base.'_v'.$version++;
+        } while (WhatsAppTemplate::where('technical_name', $candidate)->where('language', $template->language)->exists());
+
+        return $candidate;
     }
 
     public function updateBusiness(Request $request, AuditService $audit): RedirectResponse
