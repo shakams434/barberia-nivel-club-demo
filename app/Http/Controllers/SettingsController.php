@@ -31,6 +31,11 @@ class SettingsController extends Controller
     public function index(Request $request, MessageAutomationService $automationService): View
     {
         $templates = WhatsAppTemplate::with('automations')->latest()->get();
+        $definitions = collect($automationService->definitions());
+        $automations = MessageAutomation::with('template')->get()->keyBy('event_key');
+        $configuredDefinitions = $definitions->filter(
+            fn (array $definition, string $eventKey): bool => $definition['default_enabled'] || $automations->has($eventKey)
+        );
 
         return view('settings.index', [
             'business' => $request->user()->business,
@@ -41,8 +46,9 @@ class SettingsController extends Controller
             'account' => WhatsAppAccount::first(),
             'templates' => $templates,
             'utilityTemplates' => $templates->where('category', 'utility')->values(),
-            'automationDefinitions' => $automationService->definitions(),
-            'automations' => MessageAutomation::with('template')->get()->keyBy('event_key'),
+            'automationDefinitions' => $configuredDefinitions->all(),
+            'availableAutomationDefinitions' => $definitions->except($configuredDefinitions->keys())->all(),
+            'automations' => $automations,
             'editingTemplate' => $request->filled('edit_template')
                 ? WhatsAppTemplate::where('public_id', $request->string('edit_template'))->firstOrFail()
                 : null,

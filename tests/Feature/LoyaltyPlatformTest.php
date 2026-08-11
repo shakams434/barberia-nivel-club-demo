@@ -426,6 +426,67 @@ class LoyaltyPlatformTest extends TestCase
         $this->assertNull(app(MessageAutomationService::class)->templateFor($this->business, 'customer_registered'));
     }
 
+    public function test_admin_can_add_a_fifth_supported_automation_from_the_catalog(): void
+    {
+        $template = $this->template(
+            'loyalty_opt_out',
+            'utility',
+            'Hola {{1}}. Dejaste de recibir promociones de {{2}}.',
+            ['Ana', 'Barbería Prueba'],
+        );
+
+        $this->actingAs($this->admin)->get(route('settings.index'))
+            ->assertOk()
+            ->assertSeeText('Añadir automatización')
+            ->assertSeeText('Confirmación al dejar promociones');
+
+        $this->actingAs($this->admin)->put(route('automations.update'), [
+            'event_key' => 'marketing_opted_out',
+            'whatsapp_template_id' => $template->id,
+            'active' => '1',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('message_automations', [
+            'event_key' => 'marketing_opted_out',
+            'whatsapp_template_id' => $template->id,
+            'active' => true,
+        ]);
+        $this->assertSame($template->id, app(MessageAutomationService::class)->templateFor($this->business, 'marketing_opted_out')?->id);
+    }
+
+    public function test_configured_opt_out_automation_replaces_the_plain_salir_response(): void
+    {
+        $customer = $this->customer(['name' => 'Ana']);
+        app(ConsentService::class)->record($customer, Consent::MARKETING, true, 'admin', $this->admin);
+        $template = $this->template(
+            'loyalty_opt_out',
+            'utility',
+            'Hola {{1}}. Dejaste las promociones de {{2}}.',
+            ['Ana', 'Barbería Prueba'],
+        );
+        MessageAutomation::create([
+            'business_id' => $this->business->id,
+            'whatsapp_template_id' => $template->id,
+            'event_key' => 'marketing_opted_out',
+            'active' => true,
+        ]);
+        $inbound = InboundMessage::create([
+            'business_id' => $this->business->id,
+            'public_id' => (string) Str::uuid(),
+            'meta_message_id' => 'salir-template-1',
+            'from_phone_e164' => $customer->phone_e164,
+            'message_text' => 'SALIR',
+        ]);
+
+        app(InboundMessageProcessor::class)->process($inbound);
+
+        $message = WhatsAppMessage::where('idempotency_key', 'inbound-response:'.$inbound->id)->firstOrFail();
+        $this->assertSame('template', $message->message_type);
+        $this->assertSame($template->id, $message->whatsapp_template_id);
+        $this->assertSame('Hola Ana. Dejaste las promociones de Barbería Prueba.', $message->body_preview);
+        $this->assertSame('sent', $message->status);
+    }
+
     public function test_campaign_audience_supports_specific_people_gender_and_service_filters(): void
     {
         $selected = $this->customer(['name' => 'Camila', 'gender' => 'female']);
@@ -474,7 +535,7 @@ class LoyaltyPlatformTest extends TestCase
             ->assertOk()
             ->assertSeeText('Plantillas de mensajes')
             ->assertSeeText('Mensajes automáticos')
-            ->assertSeeText('Quitar relación y desactivar');
+            ->assertSeeText('Añadir automatización');
     }
 
     public function test_campaign_excludes_without_consent_avoids_duplicates_and_batches(): void

@@ -82,6 +82,10 @@ class BusinessSetupService
         }
 
         foreach (MessageAutomationService::DEFINITIONS as $eventKey => $definition) {
+            if (! $definition['default_enabled']) {
+                continue;
+            }
+
             $template = $this->ensureTemplate($business, $definition['default_template']);
             MessageAutomation::withoutGlobalScope('business')->firstOrCreate(
                 ['business_id' => $business->id, 'event_key' => $eventKey],

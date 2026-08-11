@@ -16,24 +16,35 @@ class MessageAutomationService
             'trigger' => 'Se ejecuta una vez al terminar el registro del cliente.',
             'default_template' => 'loyalty_welcome',
             'variables' => ['Nombre del cliente', 'Nombre de la barbería', 'Nivel inicial'],
+            'default_enabled' => true,
         ],
         'visit_registered' => [
             'name' => 'Resumen después de una atención',
             'trigger' => 'Se ejecuta al registrar una atención que no produce una subida de nivel.',
             'default_template' => 'loyalty_xp_update',
             'variables' => ['Nombre del cliente', 'Nombre de la barbería', 'XP ganados', 'Nivel actual', 'Rango actual', 'Progreso al siguiente nivel'],
+            'default_enabled' => true,
         ],
         'level_increased' => [
             'name' => 'Aviso de subida de nivel',
             'trigger' => 'Reemplaza al resumen normal cuando la atención hace subir de nivel.',
             'default_template' => 'loyalty_level_up',
             'variables' => ['Nombre del cliente', 'Nuevo nivel', 'Nuevo rango', 'Nombre de la barbería', 'Recompensa desbloqueada'],
+            'default_enabled' => true,
         ],
         'reward_redeemed' => [
             'name' => 'Confirmación de canje',
             'trigger' => 'Se ejecuta después de confirmar el canje de una recompensa.',
             'default_template' => 'loyalty_reward_redeemed',
             'variables' => ['Nombre del cliente', 'Recompensa canjeada', 'Nombre de la barbería'],
+            'default_enabled' => true,
+        ],
+        'marketing_opted_out' => [
+            'name' => 'Confirmación al dejar promociones',
+            'trigger' => 'Se ejecuta cuando el cliente responde SALIR y retira el permiso de promociones.',
+            'default_template' => 'loyalty_opt_out',
+            'variables' => ['Nombre del cliente', 'Nombre de la barbería'],
+            'default_enabled' => false,
         ],
     ];
 
@@ -59,10 +70,22 @@ class MessageAutomationService
             return $automation->active ? $automation->template : null;
         }
 
+        if (! $definition['default_enabled']) {
+            return null;
+        }
+
         return WhatsAppTemplate::withoutGlobalScope('business')
             ->where('business_id', $business->id)
             ->where('technical_name', $definition['default_template'])
             ->first() ?? $this->setup->ensureTemplate($business, $definition['default_template']);
+    }
+
+    public function isConfigured(Business $business, string $eventKey): bool
+    {
+        return MessageAutomation::withoutGlobalScope('business')
+            ->where('business_id', $business->id)
+            ->where('event_key', $eventKey)
+            ->exists();
     }
 
     public function validateTemplate(string $eventKey, WhatsAppTemplate $template): void

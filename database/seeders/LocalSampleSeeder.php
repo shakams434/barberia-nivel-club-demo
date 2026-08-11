@@ -122,6 +122,10 @@ class LocalSampleSeeder extends Seeder
 
         $templates = $this->createTemplates($business);
         foreach (MessageAutomationService::DEFINITIONS as $eventKey => $definition) {
+            if (! $definition['default_enabled']) {
+                continue;
+            }
+
             MessageAutomation::withoutGlobalScope('business')->create([
                 'business_id' => $business->id,
                 'whatsapp_template_id' => $templates[$definition['default_template']]->id,
@@ -316,6 +320,11 @@ class LocalSampleSeeder extends Seeder
                 'Hola {{1}}. Confirmamos el canje de {{2}} en {{3}}. Tu XP histórico se mantiene.',
                 ['Marco', 'Barba de cortesía', 'Barbería Central'],
             ],
+            'loyalty_opt_out' => [
+                'utility',
+                'Hola {{1}}. Dejaste de recibir promociones de {{2}}. Tu nivel y recompensas se mantienen.',
+                ['Marco', 'Barbería Central'],
+            ],
             'campaign_level_discount' => [
                 'marketing',
                 "Hola {{1}}.\n\nPor ser Nivel {{2}} · {{3}}, tienes {{4}}% de descuento en {{5}} hasta el {{6}}.\n\nReserva tu atención desde el botón.",
@@ -334,6 +343,7 @@ class LocalSampleSeeder extends Seeder
                     'loyalty_xp_update' => 'Resumen después de una atención',
                     'loyalty_level_up' => 'Aviso de subida de nivel',
                     'loyalty_reward_redeemed' => 'Confirmación de canje',
+                    'loyalty_opt_out' => 'Confirmación de baja promocional',
                     'campaign_level_discount' => 'Promoción por nivel',
                 },
                 'category' => $category,

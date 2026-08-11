@@ -13,6 +13,7 @@ class InboundMessageProcessor
     public function __construct(
         private readonly ConsentService $consents,
         private readonly WhatsAppMessageService $messages,
+        private readonly MessageAutomationService $automations,
     ) {}
 
     public function process(InboundMessage $inbound): void
@@ -27,6 +28,8 @@ class InboundMessageProcessor
             ->upper()
             ->value();
         $customer = Customer::where('phone_hash', Customer::phoneHash($inbound->from_phone_e164))->first();
+        $responseTemplate = null;
+        $responseVariables = [];
 
         if (in_array($command, ['UNIRME', 'QUIERO UNIRME'], true)) {
             $customer ??= $this->join($inbound);
@@ -51,8 +54,15 @@ class InboundMessageProcessor
                     text: 'Revocación de comunicaciones promocionales mediante la palabra SALIR.',
                     evidence: $inbound->meta_message_id,
                 );
+                $customer->loadMissing('business.whatsappAccount');
+                $responseTemplate = $this->automations->templateFor($customer->business, 'marketing_opted_out');
+                $responseVariables = [$customer->name, $customer->business->name];
+                $response = $this->automations->isConfigured($customer->business, 'marketing_opted_out')
+                    ? null
+                    : 'Listo. Dejaste de recibir promociones. Seguirás conservando tu nivel y recompensas.';
+            } else {
+                $response = 'Listo. Dejaste de recibir promociones. Seguirás conservando tu nivel y recompensas.';
             }
-            $response = 'Listo. Dejaste de recibir promociones. Seguirás conservando tu nivel y recompensas.';
         } elseif (in_array($command, ['PROMOS SI', 'ACEPTO PROMOS'], true)) {
             if (! $customer) {
                 $response = 'Primero responde QUIERO UNIRME para registrarte.';
@@ -84,15 +94,22 @@ class InboundMessageProcessor
         }
 
         $customer ??= Customer::where('phone_hash', Customer::phoneHash($inbound->from_phone_e164))->first();
-        if ($customer) {
+        if ($customer && ($responseTemplate || filled($response))) {
             $message = $this->messages->queue(
                 $customer,
-                null,
-                [],
+                $responseTemplate,
+                $responseVariables,
                 'inbound-response:'.$inbound->id,
                 $response,
             );
-            $this->messages->attemptNow($message->id, true);
+            if (! $responseTemplate || $customer->business->whatsappAccount?->provider === 'fake' || $responseTemplate->status === 'approved') {
+                $this->messages->attemptNow($message->id, true);
+            } else {
+                $message->update([
+                    'error_code' => 'TEMPLATE_NOT_APPROVED',
+                    'error_message' => 'Aprueba la plantilla transaccional en Meta antes de reintentar.',
+                ]);
+            }
         }
 
         $inbound->update([
