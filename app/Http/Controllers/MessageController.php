@@ -32,6 +32,7 @@ class MessageController extends Controller
             return back()->withErrors(['message' => 'Este mensaje alcanzó el máximo de intentos configurado.']);
         }
         $message->update(['status' => 'queued', 'error_code' => null, 'error_message' => null, 'queued_at' => now()]);
+        $message->campaignRecipient?->update(['status' => 'queued', 'processed_at' => null]);
         SendWhatsAppMessage::dispatch($message->id)->onQueue('messages');
         $audit->record('whatsapp_message.retried', $message, businessId: $message->business_id, userId: $request->user()->id, request: $request);
 
@@ -50,6 +51,10 @@ class MessageController extends Controller
             $updates['error_message'] = 'Fallo marcado manualmente en el entorno local.';
         }
         $message->update($updates);
+        $message->campaignRecipient?->update([
+            'status' => $data['status'],
+            'processed_at' => now(),
+        ]);
 
         return back()->with('success', 'Estado local actualizado.');
     }

@@ -21,7 +21,7 @@
         ['Nuevos este mes', $metrics['new_customers']],
         ['Atenciones del mes', $metrics['monthly_visits']],
         ['Canjes del mes', $metrics['redeemed_rewards']],
-        ['Mensajes por revisar', $metrics['message_issues']],
+        ['Mensajes con error', $metrics['failed_messages']],
     ] as [$label, $value])
         <article class="metric">
             <p class="metric-label">{{ $label }}</p>

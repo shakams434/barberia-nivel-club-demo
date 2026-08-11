@@ -16,7 +16,7 @@
         @if($campaign->status === 'draft')
             <form method="POST" action="{{ route('campaigns.confirm', $campaign) }}" class="card" data-campaign-audience data-confirm="Se crearán los destinatarios seleccionados y el envío comenzará por lotes dentro del horario configurado." data-confirm-title="Confirmar campaña" data-confirm-button="Confirmar y programar">
                 @csrf
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p class="eyebrow">Audiencia autorizada</p><h2 class="mt-1 text-lg font-black"><span data-audience-count>{{ $eligible->count() }}</span> de {{ $eligible->count() }} clientes seleccionados</h2></div><button class="btn btn-primary" type="submit" @disabled($eligible->isEmpty())>Confirmar campaña</button></div>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p class="eyebrow">Audiencia autorizada</p><h2 class="mt-1 text-lg font-black"><span data-audience-count>{{ $eligible->count() }}</span> clientes elegibles</h2></div><button class="btn btn-primary" type="submit" @disabled($eligible->isEmpty())>Confirmar campaña</button></div>
                 <p class="subtitle">La selección ya excluye clientes sin consentimiento vigente. Se verificará otra vez al enviar.</p>
                 <div class="mt-4 flex gap-2"><button class="btn btn-ghost min-h-10 text-xs" type="button" data-audience-action="all">Seleccionar todos</button><button class="btn btn-ghost min-h-10 text-xs" type="button" data-audience-action="none">Quitar selección</button></div>
                 <div class="mt-5 grid gap-2 sm:grid-cols-2">
@@ -29,9 +29,9 @@
             <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 @foreach([
                     ['Destinatarios',$campaign->recipients->count()],
-                    ['Entregados',$campaign->recipients->where('status','delivered')->count()],
+                    ['Entregados',$campaign->recipients->whereIn('status',['delivered','read'])->count()],
                     ['Leídos',$campaign->recipients->where('status','read')->count()],
-                    ['Fallidos',$campaign->recipients->whereIn('status',['failed','cancelled'])->count()],
+                    ['No enviados',$campaign->recipients->whereIn('status',['failed','cancelled','excluded','opt_out'])->count()],
                 ] as [$label,$value])<article class="metric"><p class="metric-label">{{ $label }}</p><p class="metric-value">{{ $value }}</p></article>@endforeach
             </div>
             <div class="card">

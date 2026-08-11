@@ -29,7 +29,7 @@ class DashboardController extends Controller
             'inactive_customers' => Customer::where('status', 'active')
                 ->where(fn ($query) => $query->whereNull('last_visit_at')->orWhere('last_visit_at', '<=', now()->subDays(45)))
                 ->count(),
-            'message_issues' => WhatsAppMessage::whereIn('status', ['queued', 'failed'])->count(),
+            'failed_messages' => WhatsAppMessage::whereIn('status', ['failed', 'cancelled'])->count(),
         ];
 
         $tierDistribution = Customer::select('tier_id', DB::raw('count(*) as total'))
@@ -47,7 +47,7 @@ class DashboardController extends Controller
         $checklist = [
             ['label' => 'Servicios y XP configurados', 'done' => Service::where('active', true)->exists()],
             ['label' => 'Recompensas creadas', 'done' => Reward::where('active', true)->exists()],
-            ['label' => 'Plantillas aprobadas', 'done' => WhatsAppTemplate::where('status', 'approved')->exists()],
+            ['label' => 'Plantilla promocional aprobada', 'done' => WhatsAppTemplate::where('category', 'marketing')->where('status', 'approved')->exists()],
             ['label' => 'Canal de WhatsApp definido', 'done' => $account && in_array($account->provider, ['fake', 'meta'], true)],
         ];
 

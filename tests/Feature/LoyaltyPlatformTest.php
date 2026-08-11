@@ -589,7 +589,7 @@ class LoyaltyPlatformTest extends TestCase
             ->assertOk()
             ->assertSeeText('Biblioteca de mensajes')
             ->assertSeeText('Mensajes de servicio')
-            ->assertSeeText('Promociones para campañas')
+            ->assertSeeText('Plantillas para campañas')
             ->assertSeeText('Solo campañas · no automático')
             ->assertSeeText('Automatizaciones')
             ->assertSeeText('Añadir automatización');
@@ -694,6 +694,58 @@ class LoyaltyPlatformTest extends TestCase
         Queue::assertPushed(SendWhatsAppMessage::class);
     }
 
+    public function test_demo_message_statuses_stay_synchronized_with_campaign_counters(): void
+    {
+        Queue::fake();
+        $customer = $this->customer();
+        $campaign = Campaign::create([
+            'business_id' => $this->business->id,
+            'whatsapp_template_id' => $this->marketingTemplate->id,
+            'created_by' => $this->admin->id,
+            'public_id' => (string) Str::uuid(),
+            'name' => 'Campaña sincronizada',
+            'status' => 'processing',
+        ]);
+        $recipient = $campaign->recipients()->create([
+            'business_id' => $this->business->id,
+            'customer_id' => $customer->id,
+            'status' => 'sent',
+        ]);
+        $message = WhatsAppMessage::create([
+            'business_id' => $this->business->id,
+            'customer_id' => $customer->id,
+            'campaign_recipient_id' => $recipient->id,
+            'public_id' => (string) Str::uuid(),
+            'phone_e164' => $customer->phone_e164,
+            'status' => 'sent',
+            'idempotency_key' => 'campaign-sync-demo',
+            'sent_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin)->post(route('messages.simulate', $message), [
+            'status' => 'read',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('read', $message->fresh()->status);
+        $this->assertSame('read', $recipient->fresh()->status);
+
+        $response = $this->actingAs($this->admin)->get(route('campaigns.index'))
+            ->assertOk()
+            ->assertSeeText('campaña creada')
+            ->assertSeeText('plantilla promocional aprobada')
+            ->assertSeeText('“Entregados” incluye también los mensajes leídos');
+        $campaignRow = $response->viewData('campaigns')->getCollection()->firstWhere('id', $campaign->id);
+        $this->assertSame(1, $campaignRow->delivered_count);
+        $this->assertSame(1, $campaignRow->read_count);
+        $this->assertSame(0, $campaignRow->not_sent_count);
+
+        $message->update(['status' => 'failed']);
+        $recipient->update(['status' => 'failed']);
+        $this->actingAs($this->admin)->post(route('messages.retry', $message))->assertSessionHasNoErrors();
+        $this->assertSame('queued', $message->fresh()->status);
+        $this->assertSame('queued', $recipient->fresh()->status);
+        Queue::assertPushed(SendWhatsAppMessage::class);
+    }
+
     public function test_webhook_signature_verification_idempotency_and_delivery_status(): void
     {
         Queue::fake();
@@ -738,9 +790,23 @@ class LoyaltyPlatformTest extends TestCase
 
         app(TenantContext::class)->set($this->business->id);
         $customer = $this->customer();
+        $campaign = Campaign::create([
+            'business_id' => $this->business->id,
+            'whatsapp_template_id' => $this->marketingTemplate->id,
+            'created_by' => $this->admin->id,
+            'public_id' => (string) Str::uuid(),
+            'name' => 'Sincronización de estados',
+            'status' => 'processing',
+        ]);
+        $recipient = $campaign->recipients()->create([
+            'business_id' => $this->business->id,
+            'customer_id' => $customer->id,
+            'status' => 'sent',
+        ]);
         $outbound = WhatsAppMessage::create([
             'business_id' => $this->business->id,
             'customer_id' => $customer->id,
+            'campaign_recipient_id' => $recipient->id,
             'public_id' => (string) Str::uuid(),
             'phone_e164' => $customer->phone_e164,
             'status' => 'sent',
@@ -770,8 +836,33 @@ class LoyaltyPlatformTest extends TestCase
             'HTTP_X_HUB_SIGNATURE_256' => $statusSignature,
         ], $statusRaw)->assertOk();
         $this->assertSame('delivered', $outbound->fresh()->status);
+        $this->assertSame('delivered', $recipient->fresh()->status);
         $this->assertNotNull($outbound->fresh()->delivered_at);
         $this->assertSame(2, WebhookEvent::withoutGlobalScope('business')->count());
+
+        $statusPayload['entry'][0]['changes'][0]['value']['statuses'][0]['status'] = 'read';
+        $statusPayload['entry'][0]['changes'][0]['value']['statuses'][0]['timestamp'] = (string) now()->addSecond()->timestamp;
+        $readRaw = json_encode($statusPayload);
+        $readSignature = 'sha256='.hash_hmac('sha256', $readRaw, 'test-secret');
+        $this->call('POST', '/api/webhooks/whatsapp', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_HUB_SIGNATURE_256' => $readSignature,
+        ], $readRaw)->assertOk();
+        $this->assertSame('read', $outbound->fresh()->status);
+        $this->assertSame('read', $recipient->fresh()->status);
+        $this->assertNotNull($outbound->fresh()->read_at);
+
+        $statusPayload['entry'][0]['changes'][0]['value']['statuses'][0]['status'] = 'delivered';
+        $statusPayload['entry'][0]['changes'][0]['value']['statuses'][0]['timestamp'] = (string) now()->addSeconds(2)->timestamp;
+        $lateRaw = json_encode($statusPayload);
+        $lateSignature = 'sha256='.hash_hmac('sha256', $lateRaw, 'test-secret');
+        $this->call('POST', '/api/webhooks/whatsapp', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_HUB_SIGNATURE_256' => $lateSignature,
+        ], $lateRaw)->assertOk();
+        $this->assertSame('read', $outbound->fresh()->status);
+        $this->assertSame('read', $recipient->fresh()->status);
+        $this->assertSame(4, WebhookEvent::withoutGlobalScope('business')->count());
     }
 
     public function test_scheduler_uses_five_minute_short_lived_jobs(): void

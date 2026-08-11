@@ -15,13 +15,13 @@
     </div>
 
     <div class="mt-5 grid gap-3 sm:grid-cols-2">
-        <a class="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.03] p-4 transition hover:border-emerald-300/30" href="#automatizaciones"><span class="text-2xl font-black">{{ $templates->where('category', 'utility')->count() }}</span><strong class="ml-2 text-sm">mensajes de servicio</strong><p class="mt-2 text-xs leading-5 text-[#858b95]">Pueden enviarse automáticamente cuando ocurre una acción.</p></a>
-        <a class="rounded-xl border border-[#d7b52e]/20 bg-[#d7b52e]/[0.04] p-4 transition hover:border-[#d7b52e]/40" href="{{ route('campaigns.index') }}"><span class="text-2xl font-black">{{ $templates->where('category', 'marketing')->count() }}</span><strong class="ml-2 text-sm">promociones</strong><p class="mt-2 text-xs leading-5 text-[#858b95]">Se envían desde Campañas eligiendo audiencia y fecha.</p></a>
+        <a class="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.03] p-4 transition hover:border-emerald-300/30" href="#automatizaciones"><span class="text-2xl font-black">{{ $templates->where('category', 'utility')->count() }}</span><strong class="ml-2 text-sm">plantilla{{ $templates->where('category', 'utility')->count() === 1 ? '' : 's' }} de servicio</strong><p class="mt-2 text-xs leading-5 text-[#858b95]">Contenido que puede conectarse a una acción automática.</p></a>
+        <a class="rounded-xl border border-[#d7b52e]/20 bg-[#d7b52e]/[0.04] p-4 transition hover:border-[#d7b52e]/40" href="{{ route('campaigns.index') }}"><span class="text-2xl font-black">{{ $templates->where('category', 'marketing')->count() }}</span><strong class="ml-2 text-sm">plantilla{{ $templates->where('category', 'marketing')->count() === 1 ? '' : 's' }} promocional{{ $templates->where('category', 'marketing')->count() === 1 ? '' : 'es' }}</strong><p class="mt-2 text-xs leading-5 text-[#858b95]">Una plantilla puede reutilizarse en varias campañas.</p></a>
     </div>
 
     @foreach([
         ['category' => 'utility', 'title' => 'Mensajes de servicio', 'description' => 'Contenido disponible para bienvenida, atenciones, niveles, canjes y otras acciones automáticas.'],
-        ['category' => 'marketing', 'title' => 'Promociones para campañas', 'description' => 'No se disparan por una acción. Se envían a una audiencia autorizada desde el módulo Campañas.'],
+        ['category' => 'marketing', 'title' => 'Plantillas para campañas', 'description' => 'No representan campañas creadas. Son el contenido reutilizable para enviar a distintas audiencias y fechas.'],
     ] as $group)
         <div class="mt-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div><h3 class="font-black">{{ $group['title'] }}</h3><p class="mt-1 text-xs leading-5 text-[#858b95]">{{ $group['description'] }}</p></div>

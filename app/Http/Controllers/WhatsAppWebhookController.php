@@ -140,6 +140,14 @@ class WhatsAppWebhookController extends Controller
             return;
         }
 
+        $progress = ['queued' => 0, 'sent' => 1, 'delivered' => 2, 'read' => 3];
+        if (in_array($message->status, ['read', 'failed', 'cancelled'], true) && $status !== $message->status) {
+            return;
+        }
+        if (isset($progress[$message->status], $progress[$status]) && $progress[$status] < $progress[$message->status]) {
+            return;
+        }
+
         $timestamp = isset($payload['timestamp'])
             ? now()->setTimestamp((int) $payload['timestamp'])
             : now();
@@ -147,6 +155,12 @@ class WhatsAppWebhookController extends Controller
 
         if (in_array($status, ['sent', 'delivered', 'read'], true)) {
             $updates[$status.'_at'] = $timestamp;
+        }
+        if (in_array($status, ['delivered', 'read'], true) && ! $message->sent_at) {
+            $updates['sent_at'] = $timestamp;
+        }
+        if ($status === 'read' && ! $message->delivered_at) {
+            $updates['delivered_at'] = $timestamp;
         }
 
         if (in_array($status, ['failed', 'cancelled'], true)) {

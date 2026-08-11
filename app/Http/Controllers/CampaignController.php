@@ -21,14 +21,17 @@ class CampaignController extends Controller
         $campaigns = Campaign::with('template')
             ->withCount([
                 'recipients',
-                'recipients as delivered_count' => fn ($query) => $query->where('status', 'delivered'),
+                'recipients as delivered_count' => fn ($query) => $query->whereIn('status', ['delivered', 'read']),
                 'recipients as read_count' => fn ($query) => $query->where('status', 'read'),
-                'recipients as failed_count' => fn ($query) => $query->whereIn('status', ['failed', 'cancelled']),
+                'recipients as not_sent_count' => fn ($query) => $query->whereIn('status', ['failed', 'cancelled', 'excluded', 'opt_out']),
             ])
             ->latest()
             ->paginate(15);
+        $approvedPromotionalTemplates = WhatsAppTemplate::where('category', 'marketing')
+            ->where('status', 'approved')
+            ->count();
 
-        return view('campaigns.index', compact('campaigns'));
+        return view('campaigns.index', compact('campaigns', 'approvedPromotionalTemplates'));
     }
 
     public function create(Request $request, CampaignService $service): View
