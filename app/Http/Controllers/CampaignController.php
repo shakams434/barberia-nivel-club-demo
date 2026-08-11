@@ -82,14 +82,19 @@ class CampaignController extends Controller
             'selected_customer_ids' => ['nullable', 'array', 'max:1000'],
             'selected_customer_ids.*' => ['integer'],
             'scheduled_at' => ['nullable', 'date'],
-            'variables' => ['required', 'array', 'min:1'],
+            'variables' => ['nullable', 'array', 'max:10'],
             'variables.*' => ['required', 'string', 'max:240'],
         ]);
         if (($data['audience_type'] ?? 'filter') === 'selection' && empty($data['selected_customer_ids'])) {
             throw ValidationException::withMessages(['selected_customer_ids' => 'Selecciona al menos una persona para esta campaña.']);
         }
         $template = WhatsAppTemplate::findOrFail($data['whatsapp_template_id']);
-        $templates->validateVariables($template->body, $data['variables']);
+        $variables = array_values($data['variables'] ?? []);
+        try {
+            $templates->validateVariables($template->body, $variables);
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages(['variables' => $exception->getMessage()]);
+        }
 
         $campaign = $campaigns->createDraft([
             'name' => $data['name'],
@@ -105,7 +110,7 @@ class CampaignController extends Controller
                 'reward_pending' => $request->boolean('reward_pending'),
                 'selected_ids' => $data['selected_customer_ids'] ?? null,
             ], fn ($value) => $value !== null && $value !== false && $value !== ''),
-            'variables' => array_values($data['variables']),
+            'variables' => $variables,
             'scheduled_at' => $data['scheduled_at'] ?? null,
         ], $request->user()->id, $request->user()->business_id);
 

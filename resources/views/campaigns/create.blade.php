@@ -87,13 +87,14 @@
     </div>
 
     <section class="card h-fit xl:sticky xl:top-24">
-        <p class="eyebrow">3 · Mensaje</p><h2 class="mt-1 text-lg font-black">Completa los datos del mensaje</h2>
-        <p class="subtitle">Verás exactamente dónde aparece cada valor.</p>
+        <p class="eyebrow">3 · Mensaje</p><h2 class="mt-1 text-lg font-black" data-template-message-title>Completa los datos del mensaje</h2>
+        <p class="subtitle" data-template-message-help>Verás exactamente dónde aparece cada valor.</p>
         <div class="mt-5 space-y-3">
             @foreach($samples as $index => $sample)
                 <div data-variable-field><label class="label" for="var{{ $index }}"><span data-variable-label>Dato {{ $index + 1 }}</span></label><input class="input" id="var{{ $index }}" name="variables[]" value="{{ old("variables.$index", $sample) }}" required data-template-variable></div>
             @endforeach
         </div>
+        @error('variables')<p class="field-error mt-3">{{ $message }}</p>@enderror
         <div class="mt-5 rounded-[1.6rem] bg-[#0d1712] p-4 shadow-inner">
             <div class="ml-auto min-h-24 max-w-[94%] whitespace-pre-line rounded-2xl rounded-tr-sm bg-[#1f4f3a] p-3 text-sm leading-6 text-[#edf8f1]" data-template-preview>Selecciona un mensaje para ver la vista previa.</div>
             <p class="mt-2 text-right text-[10px] text-[#7a9587]">Vista previa · todavía no se enviará</p>

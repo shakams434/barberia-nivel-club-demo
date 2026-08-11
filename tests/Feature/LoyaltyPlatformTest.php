@@ -584,6 +584,21 @@ class LoyaltyPlatformTest extends TestCase
             ->assertSeeText('Añadir automatización');
     }
 
+    public function test_campaign_accepts_an_approved_fixed_text_template_without_invisible_variables(): void
+    {
+        $template = $this->template('campaign_fixed_text', 'marketing', 'Promoción válida durante agosto.', []);
+
+        $this->actingAs($this->admin)->post(route('campaigns.store'), [
+            'name' => 'Promoción con texto fijo',
+            'whatsapp_template_id' => $template->id,
+            'audience_type' => 'filter',
+        ])->assertSessionHasNoErrors();
+
+        $campaign = Campaign::where('name', 'Promoción con texto fijo')->firstOrFail();
+        $this->assertSame([], $campaign->variables);
+        $this->assertSame($template->id, $campaign->whatsapp_template_id);
+    }
+
     public function test_campaign_excludes_without_consent_avoids_duplicates_and_batches(): void
     {
         Queue::fake();
@@ -944,7 +959,7 @@ class LoyaltyPlatformTest extends TestCase
             'language' => 'es_PE',
             'header_type' => 'none',
             'body' => $body,
-            'variables' => range(1, count($samples)),
+            'variables' => $samples ? range(1, count($samples)) : [],
             'samples' => $samples,
             'status' => 'approved',
         ]);

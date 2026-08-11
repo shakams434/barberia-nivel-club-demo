@@ -130,12 +130,17 @@ document.addEventListener('DOMContentLoaded', () => {
     qsa('[data-template-builder]').forEach((builder) => {
         const select = qs('[data-template-select]', builder);
         const preview = qs('[data-template-preview]', builder);
+        const messageTitle = qs('[data-template-message-title]', builder);
+        const messageHelp = qs('[data-template-message-help]', builder);
         const variables = qsa('[data-template-variable]', builder);
         const update = () => {
             let body = select?.selectedOptions?.[0]?.dataset.body || 'Selecciona una plantilla para ver el mensaje.';
             const expected = Number(select?.selectedOptions?.[0]?.dataset.variables || 0);
             let samples = [];
             try { samples = JSON.parse(select?.selectedOptions?.[0]?.dataset.samples || '[]'); } catch { samples = []; }
+            const hasTemplate = Boolean(select?.value);
+            if (messageTitle) messageTitle.textContent = hasTemplate && expected === 0 ? 'Mensaje listo para revisar' : 'Completa los datos del mensaje';
+            if (messageHelp) messageHelp.textContent = hasTemplate && expected === 0 ? 'Esta plantilla usa texto fijo y no necesita datos adicionales.' : 'Verás exactamente dónde aparece cada valor.';
             variables.forEach((input, index) => {
                 const field = input.closest('[data-variable-field]');
                 const label = field ? qs('[data-variable-label]', field) : null;
