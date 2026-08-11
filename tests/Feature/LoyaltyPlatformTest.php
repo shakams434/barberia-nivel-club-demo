@@ -742,6 +742,7 @@ class LoyaltyPlatformTest extends TestCase
             ->assertOk()
             ->assertSeeText('campaña creada')
             ->assertSeeText('plantilla promocional disponible')
+            ->assertSeeText('“Procesada” significa que el sistema terminó de preparar a los destinatarios')
             ->assertSeeText('“Entregados” incluye también los mensajes leídos');
         $campaignRow = $response->viewData('campaigns')->getCollection()->firstWhere('id', $campaign->id);
         $this->assertSame(1, $campaignRow->delivered_count);

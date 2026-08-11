@@ -3,7 +3,7 @@
 @section('content')
 @php
     $business = auth()->user()->business;
-    $statusLabels = ['draft' => 'Borrador', 'scheduled' => 'Programada', 'queued' => 'En cola', 'processing' => 'Procesando', 'paused' => 'Pausada', 'completed' => 'Completada', 'cancelled' => 'Cancelada'];
+    $statusLabels = ['draft' => 'Borrador', 'scheduled' => 'Programada', 'queued' => 'En cola', 'processing' => 'Procesando', 'paused' => 'Pausada', 'completed' => 'Procesada', 'cancelled' => 'Cancelada'];
     $recipientLabels = ['queued' => 'En cola', 'submitted' => 'Preparado', 'sent' => 'Enviado', 'delivered' => 'Entregado', 'read' => 'Leído', 'failed' => 'Fallido', 'cancelled' => 'Cancelado', 'excluded' => 'Excluido', 'opt_out' => 'Sin autorización'];
 @endphp
 <div class="page-heading">

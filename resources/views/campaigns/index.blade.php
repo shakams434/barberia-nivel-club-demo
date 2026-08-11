@@ -3,7 +3,7 @@
 @section('content')
 @php
     $business = auth()->user()->business;
-    $statusLabels = ['draft' => 'Borrador', 'scheduled' => 'Programada', 'queued' => 'En cola', 'processing' => 'Procesando', 'paused' => 'Pausada', 'completed' => 'Completada', 'cancelled' => 'Cancelada'];
+    $statusLabels = ['draft' => 'Borrador', 'scheduled' => 'Programada', 'queued' => 'En cola', 'processing' => 'Procesando', 'paused' => 'Pausada', 'completed' => 'Procesada', 'cancelled' => 'Cancelada'];
 @endphp
 <div class="page-heading">
     <div><p class="eyebrow">Promociones responsables</p><h1 class="title">Campañas</h1><p class="subtitle">Cada campaña es un envío creado. Una misma plantilla promocional puede reutilizarse en varias campañas.</p></div>
@@ -14,7 +14,7 @@
     <div class="rounded-xl border border-white/8 p-4"><span class="text-2xl font-black">{{ $campaigns->total() }}</span><strong class="ml-2 text-sm">campaña{{ $campaigns->total() === 1 ? '' : 's' }} creada{{ $campaigns->total() === 1 ? '' : 's' }}</strong><p class="mt-1 text-xs text-[#858b95]">Historial de envíos y borradores.</p></div>
     <a class="rounded-xl border border-[#d7b52e]/20 bg-[#d7b52e]/[0.04] p-4" href="{{ route('settings.index') }}#plantillas"><span class="text-2xl font-black">{{ $approvedPromotionalTemplates }}</span><strong class="ml-2 text-sm">plantilla{{ $approvedPromotionalTemplates === 1 ? '' : 's' }} promocional{{ $approvedPromotionalTemplates === 1 ? '' : 'es' }} disponible{{ $approvedPromotionalTemplates === 1 ? '' : 's' }}</strong><p class="mt-1 text-xs text-[#858b95]">Registradas después de su aprobación externa en Meta.</p></a>
 </div>
-<div class="mb-4 rounded-xl border border-sky-300/15 bg-sky-300/5 p-3 text-xs leading-5 text-sky-100/80"><strong>Cómo leer los resultados:</strong> “Entregados” incluye también los mensajes leídos. “No enviados” reúne errores, cancelaciones y exclusiones por consentimiento o frecuencia.</div>
+<div class="mb-4 rounded-xl border border-sky-300/15 bg-sky-300/5 p-3 text-xs leading-5 text-sky-100/80"><strong>Cómo leer los resultados:</strong> “Procesada” significa que el sistema terminó de preparar a los destinatarios; las confirmaciones de entrega y lectura pueden llegar después. “Entregados” incluye también los mensajes leídos y “No enviados” reúne errores, cancelaciones y exclusiones.</div>
 
 <div class="grid gap-4">
     @forelse($campaigns as $campaign)
