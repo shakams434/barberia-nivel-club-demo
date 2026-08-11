@@ -12,7 +12,7 @@
 
 <div class="mb-4 grid gap-3 sm:grid-cols-2">
     <div class="rounded-xl border border-white/8 p-4"><span class="text-2xl font-black">{{ $campaigns->total() }}</span><strong class="ml-2 text-sm">campaña{{ $campaigns->total() === 1 ? '' : 's' }} creada{{ $campaigns->total() === 1 ? '' : 's' }}</strong><p class="mt-1 text-xs text-[#858b95]">Historial de envíos y borradores.</p></div>
-    <a class="rounded-xl border border-[#d7b52e]/20 bg-[#d7b52e]/[0.04] p-4" href="{{ route('settings.index') }}#plantillas"><span class="text-2xl font-black">{{ $approvedPromotionalTemplates }}</span><strong class="ml-2 text-sm">plantilla{{ $approvedPromotionalTemplates === 1 ? '' : 's' }} promocional{{ $approvedPromotionalTemplates === 1 ? '' : 'es' }} aprobada{{ $approvedPromotionalTemplates === 1 ? '' : 's' }}</strong><p class="mt-1 text-xs text-[#858b95]">Contenido disponible para crear nuevas campañas.</p></a>
+    <a class="rounded-xl border border-[#d7b52e]/20 bg-[#d7b52e]/[0.04] p-4" href="{{ route('settings.index') }}#plantillas"><span class="text-2xl font-black">{{ $approvedPromotionalTemplates }}</span><strong class="ml-2 text-sm">plantilla{{ $approvedPromotionalTemplates === 1 ? '' : 's' }} promocional{{ $approvedPromotionalTemplates === 1 ? '' : 'es' }} disponible{{ $approvedPromotionalTemplates === 1 ? '' : 's' }}</strong><p class="mt-1 text-xs text-[#858b95]">Registradas después de su aprobación externa en Meta.</p></a>
 </div>
 <div class="mb-4 rounded-xl border border-sky-300/15 bg-sky-300/5 p-3 text-xs leading-5 text-sky-100/80"><strong>Cómo leer los resultados:</strong> “Entregados” incluye también los mensajes leídos. “No enviados” reúne errores, cancelaciones y exclusiones por consentimiento o frecuencia.</div>
 
@@ -33,7 +33,7 @@
             </div>
         </a>
     @empty
-        <div class="empty">Aún no hay campañas. Crea un borrador cuando tengas una plantilla de marketing aprobada.</div>
+        <div class="empty">Aún no hay campañas. Primero registra una plantilla de marketing que ya esté activa en WhatsApp Manager.</div>
     @endforelse
 </div>
 <div class="mt-5">{{ $campaigns->links() }}</div>

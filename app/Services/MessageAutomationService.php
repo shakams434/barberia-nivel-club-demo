@@ -67,17 +67,27 @@ class MessageAutomationService
             ->first();
 
         if ($automation) {
-            return $automation->active ? $automation->template : null;
+            return $automation->active && $automation->template?->status === 'approved'
+                ? $automation->template
+                : null;
         }
 
         if (! $definition['default_enabled']) {
             return null;
         }
 
-        return WhatsAppTemplate::withoutGlobalScope('business')
+        $template = WhatsAppTemplate::withoutGlobalScope('business')
             ->where('business_id', $business->id)
             ->where('technical_name', $definition['default_template'])
-            ->first() ?? $this->setup->ensureTemplate($business, $definition['default_template']);
+            ->where('status', 'approved')
+            ->first();
+        if ($template) {
+            return $template;
+        }
+
+        $template = $this->setup->ensureTemplate($business, $definition['default_template']);
+
+        return $template->status === 'approved' ? $template : null;
     }
 
     public function isConfigured(Business $business, string $eventKey): bool
@@ -91,7 +101,7 @@ class MessageAutomationService
     public function validateTemplate(string $eventKey, WhatsAppTemplate $template): void
     {
         $definition = self::DEFINITIONS[$eventKey] ?? null;
-        if (! $definition || $template->category !== 'utility') {
+        if (! $definition || $template->category !== 'utility' || $template->status !== 'approved') {
             throw new \DomainException('Selecciona una plantilla de servicio compatible con esta acción.');
         }
 

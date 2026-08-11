@@ -3,7 +3,7 @@
 @section('content')
 @php
     $settings = $business->settings ?? [];
-    $templateStatusLabels = ['draft' => 'Borrador', 'pending' => 'En revisión', 'approved' => 'Aprobada', 'rejected' => 'Rechazada', 'paused' => 'Pausada', 'disabled' => 'Deshabilitada'];
+    $templateStatusLabels = ['draft' => 'Pendiente de registrar', 'pending' => 'En revisión externa', 'approved' => 'Disponible', 'rejected' => 'No disponible', 'paused' => 'Pausada', 'disabled' => 'Desactivada'];
 @endphp
 <div class="page-heading">
     <div><p class="eyebrow">Administración</p><h1 class="title">Configuración</h1><p class="subtitle">Personaliza el negocio, el programa y los canales desde un solo lugar.</p></div>

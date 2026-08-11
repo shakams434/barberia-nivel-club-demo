@@ -30,7 +30,7 @@ class SettingsController extends Controller
 {
     public function index(Request $request, MessageAutomationService $automationService): View
     {
-        $templates = WhatsAppTemplate::with('automations')->latest()->get();
+        $templates = WhatsAppTemplate::with('automations')->withCount('campaigns')->latest()->get();
         $definitions = collect($automationService->definitions());
         $automations = MessageAutomation::with('template')->get()->keyBy('event_key');
         $configuredDefinitions = $definitions->filter(
@@ -38,9 +38,6 @@ class SettingsController extends Controller
         );
         $editingTemplate = $request->filled('edit_template')
             ? WhatsAppTemplate::where('public_id', $request->string('edit_template'))->firstOrFail()
-            : null;
-        $versioningTemplate = $request->filled('version_template')
-            ? WhatsAppTemplate::where('public_id', $request->string('version_template'))->firstOrFail()
             : null;
 
         return view('settings.index', [
@@ -51,26 +48,12 @@ class SettingsController extends Controller
             'rewards' => Reward::orderBy('required_level')->get(),
             'account' => WhatsAppAccount::first(),
             'templates' => $templates,
-            'utilityTemplates' => $templates->where('category', 'utility')->values(),
+            'utilityTemplates' => $templates->where('category', 'utility')->where('status', 'approved')->values(),
             'automationDefinitions' => $configuredDefinitions->all(),
             'availableAutomationDefinitions' => $definitions->except($configuredDefinitions->keys())->all(),
             'automations' => $automations,
             'editingTemplate' => $editingTemplate,
-            'versioningTemplate' => $versioningTemplate,
-            'versionTechnicalName' => $versioningTemplate ? $this->nextTemplateTechnicalName($versioningTemplate) : null,
         ]);
-    }
-
-    private function nextTemplateTechnicalName(WhatsAppTemplate $template): string
-    {
-        $base = preg_replace('/_v\d+$/', '', $template->technical_name);
-        $version = 2;
-
-        do {
-            $candidate = $base.'_v'.$version++;
-        } while (WhatsAppTemplate::where('technical_name', $candidate)->where('language', $template->language)->exists());
-
-        return $candidate;
     }
 
     public function updateBusiness(Request $request, AuditService $audit): RedirectResponse

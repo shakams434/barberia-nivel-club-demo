@@ -47,7 +47,7 @@ class DashboardController extends Controller
         $checklist = [
             ['label' => 'Servicios y XP configurados', 'done' => Service::where('active', true)->exists()],
             ['label' => 'Recompensas creadas', 'done' => Reward::where('active', true)->exists()],
-            ['label' => 'Plantilla promocional aprobada', 'done' => WhatsAppTemplate::where('category', 'marketing')->where('status', 'approved')->exists()],
+            ['label' => 'Plantilla promocional registrada', 'done' => WhatsAppTemplate::where('category', 'marketing')->where('status', 'approved')->exists()],
             ['label' => 'Canal de WhatsApp definido', 'done' => $account && in_array($account->provider, ['fake', 'meta'], true)],
         ];
 

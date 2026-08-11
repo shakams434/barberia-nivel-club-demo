@@ -408,11 +408,14 @@ class LoyaltyPlatformTest extends TestCase
             'header_type' => 'none',
             'body' => 'Hola {{1}}, te damos la bienvenida a {{2}} en el nivel {{3}}.',
             'samples' => ['Ana', 'Barbería Prueba', '1'],
+            'approval_confirmed' => '1',
         ])->assertSessionHasNoErrors();
 
         $template = WhatsAppTemplate::where('technical_name', 'welcome_custom')->firstOrFail();
         $this->assertSame('Bienvenida personalizada', $template->display_name);
         $this->assertSame([1, 2, 3], $template->variables);
+        $this->assertSame('approved', $template->status);
+        $this->assertSame('demo', $template->registration_source);
 
         $this->actingAs($this->admin)->put(route('automations.update'), [
             'event_key' => 'customer_registered',
@@ -426,7 +429,7 @@ class LoyaltyPlatformTest extends TestCase
         $this->assertNull(app(MessageAutomationService::class)->templateFor($this->business, 'customer_registered'));
     }
 
-    public function test_admin_can_edit_an_approved_message_as_a_safe_new_version(): void
+    public function test_admin_can_register_and_disable_a_template_without_simulating_meta_approval(): void
     {
         $source = $this->template(
             'welcome_original',
@@ -442,36 +445,21 @@ class LoyaltyPlatformTest extends TestCase
             'active' => true,
         ]);
 
-        $this->actingAs($this->admin)->get(route('settings.index', ['version_template' => $source->public_id]))
+        $this->actingAs($this->admin)->get(route('settings.index'))
             ->assertOk()
-            ->assertSeeText('Crear versión editable')
-            ->assertSeeText('La versión actual no cambia')
-            ->assertSee('welcome_original_v2');
+            ->assertSeeText('Meta aprueba las plantillas en WhatsApp Manager')
+            ->assertSeeText('Registrar plantilla aprobada')
+            ->assertDontSeeText('Aprobar en demo')
+            ->assertDontSeeText('Enviar a Meta');
 
-        $this->actingAs($this->admin)->post(route('templates.store'), [
-            'replaces_template' => $source->public_id,
-            'display_name' => 'Bienvenida original · nueva versión',
-            'technical_name' => 'welcome_original_v2',
-            'category' => 'utility',
-            'language' => 'es_PE',
-            'header_type' => 'none',
-            'body' => 'Hola {{1}}. Qué gusto tenerte en {{2}}. Empiezas en el nivel {{3}}.',
-            'samples' => ['Ana', 'Barbería Prueba', '1'],
+        $this->actingAs($this->admin)->put(route('templates.status', $source), [
+            'action' => 'disable',
         ])->assertSessionHasNoErrors();
 
-        $replacement = WhatsAppTemplate::where('technical_name', 'welcome_original_v2')->firstOrFail();
-        $this->assertSame($source->id, $replacement->replaces_template_id);
-        $this->assertSame('draft', $replacement->status);
-        $this->assertSame($source->id, $automation->fresh()->whatsapp_template_id);
-
-        $this->actingAs($this->admin)->post(route('templates.review', $replacement), [
-            'decision' => 'approve',
-        ])->assertSessionHasNoErrors();
-
-        $this->assertSame('approved', $replacement->fresh()->status);
-        $this->assertSame($replacement->id, $automation->fresh()->whatsapp_template_id);
-        $this->assertSame('approved', $source->fresh()->status);
-        $this->assertDatabaseHas('audit_logs', ['action' => 'whatsapp_template.version_activated']);
+        $this->assertSame('disabled', $source->fresh()->status);
+        $this->assertFalse($automation->fresh()->active);
+        $this->assertNull(app(MessageAutomationService::class)->templateFor($this->business, 'customer_registered'));
+        $this->assertDatabaseHas('audit_logs', ['action' => 'whatsapp_template.status_changed']);
     }
 
     public function test_admin_can_add_a_fifth_supported_automation_from_the_catalog(): void
@@ -587,10 +575,11 @@ class LoyaltyPlatformTest extends TestCase
 
         $this->actingAs($this->admin)->get(route('settings.index'))
             ->assertOk()
-            ->assertSeeText('Biblioteca de mensajes')
+            ->assertSeeText('Plantillas registradas')
+            ->assertSeeText('Meta aprueba las plantillas en WhatsApp Manager')
             ->assertSeeText('Mensajes de servicio')
-            ->assertSeeText('Plantillas para campañas')
-            ->assertSeeText('Solo campañas · no automático')
+            ->assertSeeText('Mensajes para campañas')
+            ->assertSeeText('registrar una plantilla aquí no la envía ni la aprueba en Meta')
             ->assertSeeText('Automatizaciones')
             ->assertSeeText('Añadir automatización');
     }
@@ -653,6 +642,27 @@ class LoyaltyPlatformTest extends TestCase
         );
         $this->assertSame('excluded', $campaign->recipients()->first()->status);
         $this->assertSame('frequency_limit', $campaign->recipients()->first()->exclusion_reason);
+    }
+
+    public function test_dispatcher_recovers_a_stale_processing_campaign_with_queued_recipients(): void
+    {
+        Queue::fake();
+        $customer = $this->customer();
+        app(ConsentService::class)->record($customer, Consent::MARKETING, true, 'admin', $this->admin);
+        $campaign = app(CampaignService::class)->createDraft([
+            'name' => 'Campaña recuperable',
+            'whatsapp_template_id' => $this->marketingTemplate->id,
+            'variables' => ['{customer_name}', '{level}', '{tier}', '15', 'Corte', '31/12/2026'],
+        ], $this->admin->id, $this->business->id);
+        app(CampaignService::class)->confirm($campaign, $this->admin->id);
+        DB::table('campaigns')->where('id', $campaign->id)->update([
+            'status' => 'processing',
+            'updated_at' => now()->subMinutes(11),
+        ]);
+
+        $this->assertSame(1, app(CampaignDispatcher::class)->dispatchDue());
+        $this->assertSame('processing', $campaign->fresh()->status);
+        Queue::assertPushed(ProcessCampaignBatch::class, fn ($job) => $job->campaignId === $campaign->id);
     }
 
     public function test_campaign_can_be_paused_resumed_and_cancelled_before_processing_recipients(): void
@@ -731,7 +741,7 @@ class LoyaltyPlatformTest extends TestCase
         $response = $this->actingAs($this->admin)->get(route('campaigns.index'))
             ->assertOk()
             ->assertSeeText('campaña creada')
-            ->assertSeeText('plantilla promocional aprobada')
+            ->assertSeeText('plantilla promocional disponible')
             ->assertSeeText('“Entregados” incluye también los mensajes leídos');
         $campaignRow = $response->viewData('campaigns')->getCollection()->firstWhere('id', $campaign->id);
         $this->assertSame(1, $campaignRow->delivered_count);
@@ -877,6 +887,7 @@ class LoyaltyPlatformTest extends TestCase
         $this->assertSame('*/5 * * * *', $workerEvent->expression);
         $this->assertStringContainsString('--stop-when-empty', $workerEvent->command);
         $this->assertStringContainsString('--max-time=240', $workerEvent->command);
+        $this->assertStringContainsString('--queue=campaigns,messages,default', $workerEvent->command);
     }
 
     public function test_inbound_commands_saldo_premios_and_ayuda_are_deterministic(): void

@@ -117,6 +117,7 @@ class BusinessSetupService
                 'footer' => $definition['footer'] ?? null,
                 'variables' => range(1, count($definition['samples'])),
                 'samples' => $definition['samples'],
+                'registration_source' => app()->isProduction() ? 'manual' : 'demo',
                 'status' => app()->isProduction() ? 'draft' : 'approved',
             ],
         );

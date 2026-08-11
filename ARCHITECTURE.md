@@ -74,7 +74,7 @@ No se usan subdominios ni bases separadas; la frontera es por fila. Una evoluci�
 
 ## Hosting compartido
 
-No hay Redis, Horizon, Supervisor ni daemon. El Cron de cinco minutos llama `schedule:run`; el Scheduler encola campañas y ejecuta `queue:work --stop-when-empty --max-time=240`. Las notificaciones individuales intentan enviarse durante la solicitud con timeout de cinco segundos y caen a cola.
+No hay Redis ni Horizon. El Cron de cinco minutos llama `schedule:run`; el Scheduler encola campañas y ejecuta `queue:work --queue=campaigns,messages,default --stop-when-empty --max-time=240`. Las notificaciones individuales intentan enviarse durante la solicitud con timeout de cinco segundos y caen a cola.
 
 ## Escalamiento futuro
 

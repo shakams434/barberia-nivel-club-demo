@@ -14,7 +14,7 @@
 </div>
 
 @if($templates->isEmpty())
-    <div class="card mb-5 border-amber-300/20 bg-amber-300/7"><strong class="text-amber-100">Falta una plantilla de promociones aprobada.</strong><p class="mt-1 text-sm text-amber-100/70">Créala en Configuración y completa la aprobación de Meta antes de preparar el envío.</p><a class="btn btn-secondary mt-4" href="{{ route('settings.index') }}#plantillas">Abrir plantillas</a></div>
+    <div class="card mb-5 border-amber-300/20 bg-amber-300/7"><strong class="text-amber-100">Falta registrar una plantilla promocional.</strong><p class="mt-1 text-sm text-amber-100/70">Créala y espera su aprobación en WhatsApp Manager; después regístrala aquí para preparar el envío.</p><a class="btn btn-secondary mt-4" href="{{ route('settings.index') }}#registrar-plantilla">Registrar plantilla</a></div>
 @endif
 
 <form method="POST" action="{{ route('campaigns.store') }}" class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]" data-template-builder data-campaign-audience>
@@ -23,7 +23,7 @@
         <section class="card space-y-5">
             <div><p class="eyebrow">1 · Campaña</p><h2 class="mt-1 text-lg font-black">Datos básicos</h2></div>
             <div><label class="label" for="name">Nombre para identificarla</label><input class="input" id="name" name="name" value="{{ old('name') }}" placeholder="Ej. Descuento para clientes inactivos" required autofocus></div>
-            <div><label class="label" for="template">Mensaje promocional aprobado</label><select class="select" id="template" name="whatsapp_template_id" required data-template-select><option value="" data-body="" data-variables="0" data-samples="[]">Selecciona un mensaje</option>@foreach($templates as $template)<option value="{{ $template->id }}" data-body="{{ $template->body }}" data-variables="{{ count($template->variables ?? []) }}" data-samples='@json($template->samples ?? [])' @selected(old('whatsapp_template_id') == $template->id)>{{ $template->display_name ?: $template->technical_name }} · {{ strtoupper($template->language) }}</option>@endforeach</select><p class="mt-1.5 text-[11px] text-[#777d87]">Solo aparecen plantillas de promociones aprobadas.</p></div>
+            <div><label class="label" for="template">Plantilla promocional disponible</label><select class="select" id="template" name="whatsapp_template_id" required data-template-select><option value="" data-body="" data-variables="0" data-samples="[]">Selecciona un mensaje</option>@foreach($templates as $template)<option value="{{ $template->id }}" data-body="{{ $template->body }}" data-variables="{{ count($template->variables ?? []) }}" data-samples='@json($template->samples ?? [])' @selected(old('whatsapp_template_id') == $template->id)>{{ $template->display_name ?: $template->technical_name }} · {{ strtoupper($template->language) }}</option>@endforeach</select><p class="mt-1.5 text-[11px] text-[#777d87]">Solo aparecen plantillas registradas como activas en WhatsApp Manager.</p></div>
             <div><label class="label" for="scheduled_at">¿Cuándo se enviará?</label><input class="input" id="scheduled_at" name="scheduled_at" type="datetime-local" value="{{ old('scheduled_at') }}"><p class="mt-1.5 text-[11px] text-[#777d87]">Si lo dejas vacío, quedará listo para el próximo lote dentro del horario permitido · {{ $business->timezone }}.</p></div>
         </section>
 

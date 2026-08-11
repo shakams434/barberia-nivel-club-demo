@@ -353,6 +353,7 @@ class LocalSampleSeeder extends Seeder
                 'footer' => $category === 'marketing' ? 'Puedes dejar de recibir promociones respondiendo SALIR.' : null,
                 'variables' => range(1, count($samples)),
                 'samples' => $samples,
+                'registration_source' => 'demo',
                 'status' => 'approved',
                 'last_synced_at' => now(),
             ]);

@@ -10,6 +10,12 @@ class CampaignDispatcher
 {
     public function dispatchDue(): int
     {
+        Campaign::withoutGlobalScope('business')
+            ->where('status', 'processing')
+            ->where('updated_at', '<=', now()->subMinutes(10))
+            ->whereHas('recipients', fn ($query) => $query->where('status', 'queued'))
+            ->update(['status' => 'queued']);
+
         $campaigns = Campaign::withoutGlobalScope('business')
             ->with('business.loyaltyProgram')
             ->whereIn('status', ['queued', 'scheduled'])

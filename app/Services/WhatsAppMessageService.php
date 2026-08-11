@@ -58,6 +58,7 @@ class WhatsAppMessageService
                 'error_code' => 'MAX_ATTEMPTS',
                 'error_message' => 'Se alcanzó el máximo de intentos configurado.',
             ]);
+            $message->campaignRecipient?->update(['status' => 'failed', 'processed_at' => now()]);
 
             return $message->fresh();
         }
@@ -82,6 +83,10 @@ class WhatsAppMessageService
                 'failed_at' => now(),
                 'error_code' => (string) $exception->getCode(),
                 'error_message' => $this->sanitizeError($exception->getMessage()),
+            ]);
+            $message->campaignRecipient?->update([
+                'status' => $requeueOnFailure ? 'queued' : 'failed',
+                'processed_at' => $requeueOnFailure ? null : now(),
             ]);
 
             if ($requeueOnFailure) {

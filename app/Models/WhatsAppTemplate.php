@@ -15,7 +15,7 @@ class WhatsAppTemplate extends Model
 
     protected $fillable = [
         'business_id', 'replaces_template_id', 'public_id', 'technical_name', 'display_name', 'category', 'language', 'header_type',
-        'header', 'body', 'footer', 'buttons', 'variables', 'samples', 'meta_id', 'status',
+        'header', 'body', 'footer', 'buttons', 'variables', 'samples', 'meta_id', 'registration_source', 'status',
         'rejection_reason', 'last_synced_at',
     ];
 
@@ -42,6 +42,11 @@ class WhatsAppTemplate extends Model
     public function automations(): HasMany
     {
         return $this->hasMany(MessageAutomation::class, 'whatsapp_template_id');
+    }
+
+    public function campaigns(): HasMany
+    {
+        return $this->hasMany(Campaign::class, 'whatsapp_template_id');
     }
 
     public function replacesTemplate(): BelongsTo

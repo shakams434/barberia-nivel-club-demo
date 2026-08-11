@@ -9,6 +9,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('campaigns:dispatch')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('queue:work database --stop-when-empty --tries=3 --max-time=240')
+Schedule::command('queue:work database --queue=campaigns,messages,default --stop-when-empty --tries=3 --max-time=240')
     ->everyFiveMinutes()
     ->withoutOverlapping();

@@ -77,9 +77,7 @@ Route::middleware(['auth', 'tenant'])->group(function (): void {
     Route::post('/configuracion/whatsapp/probar', [SettingsController::class, 'testWhatsApp'])->name('settings.whatsapp.test');
     Route::post('/configuracion/plantillas', [TemplateController::class, 'store'])->name('templates.store');
     Route::put('/configuracion/plantillas/{template}', [TemplateController::class, 'update'])->name('templates.update');
-    Route::post('/configuracion/plantillas/{template}/revision', [TemplateController::class, 'review'])->name('templates.review');
-    Route::post('/configuracion/plantillas/{template}/enviar', [TemplateController::class, 'submit'])->name('templates.submit');
-    Route::post('/configuracion/plantillas/{template}/sincronizar', [TemplateController::class, 'sync'])->name('templates.sync');
+    Route::put('/configuracion/plantillas/{template}/estado', [TemplateController::class, 'status'])->name('templates.status');
     Route::put('/configuracion/automatizaciones', [MessageAutomationController::class, 'update'])->name('automations.update');
     Route::delete('/configuracion/automatizaciones/{eventKey}', [MessageAutomationController::class, 'disable'])->name('automations.disable');
 });

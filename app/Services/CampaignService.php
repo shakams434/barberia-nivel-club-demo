@@ -40,7 +40,7 @@ class CampaignService
     {
         $template = WhatsAppTemplate::findOrFail($data['whatsapp_template_id']);
         if (! $template->isApprovedMarketing()) {
-            throw new \DomainException('Solo se permiten plantillas de marketing aprobadas.');
+            throw new \DomainException('Selecciona una plantilla promocional registrada como disponible.');
         }
 
         return Campaign::create([
@@ -60,7 +60,7 @@ class CampaignService
     public function confirm(Campaign $campaign, int $userId, ?Collection $selectedCustomerIds = null): Campaign
     {
         if (! $campaign->template->isApprovedMarketing()) {
-            throw new \DomainException('La plantilla ya no está aprobada para marketing.');
+            throw new \DomainException('La plantilla ya no está disponible. Verifica su estado en WhatsApp Manager y en Configuración.');
         }
 
         $customers = $this->eligibleCustomers($campaign->filters ?? [], $selectedCustomerIds);
