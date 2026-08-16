@@ -54,6 +54,8 @@ class CustomerController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'gender' => ['nullable', Rule::in(['male', 'female', 'non_binary', 'prefer_not_to_say'])],
+            'birth_date' => ['nullable', 'date', 'before_or_equal:today'],
+            'anniversary_date' => ['nullable', 'date', 'before_or_equal:today'],
             'phone' => ['required', 'string', 'max:30'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'loyalty_consent' => ['accepted'],
@@ -72,6 +74,8 @@ class CustomerController extends Controller
             'public_id' => (string) Str::uuid(),
             'name' => $data['name'],
             'gender' => $data['gender'] ?? null,
+            'birth_date' => $data['birth_date'] ?? null,
+            'anniversary_date' => $data['anniversary_date'] ?? null,
             'phone_raw' => $data['phone'],
             'phone_e164' => $phone,
             'source' => 'admin',
@@ -174,6 +178,8 @@ class CustomerController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'gender' => ['nullable', Rule::in(['male', 'female', 'non_binary', 'prefer_not_to_say'])],
+            'birth_date' => ['nullable', 'date', 'before_or_equal:today'],
+            'anniversary_date' => ['nullable', 'date', 'before_or_equal:today'],
             'phone' => ['required', 'string', 'max:30'],
             'status' => ['required', Rule::in(['active', 'inactive', 'pending'])],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -188,6 +194,8 @@ class CustomerController extends Controller
         $customer->update([
             'name' => $data['name'],
             'gender' => $data['gender'] ?? null,
+            'birth_date' => $data['birth_date'] ?? null,
+            'anniversary_date' => $data['anniversary_date'] ?? null,
             'phone_raw' => $data['phone'],
             'phone_e164' => $phone,
             'status' => $data['status'],

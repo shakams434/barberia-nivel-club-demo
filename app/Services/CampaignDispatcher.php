@@ -26,9 +26,11 @@ class CampaignDispatcher
         foreach ($campaigns as $campaign) {
             $program = $campaign->business->loyaltyProgram;
             $localTime = now()->timezone($campaign->business->timezone)->format('H:i');
+            $windowStart = substr((string) $program?->campaign_window_start, 0, 5);
+            $windowEnd = substr((string) $program?->campaign_window_end, 0, 5);
             if (
                 $program
-                && ($localTime < $program->campaign_window_start || $localTime >= $program->campaign_window_end)
+                && ($localTime < $windowStart || $localTime >= $windowEnd)
             ) {
                 continue;
             }

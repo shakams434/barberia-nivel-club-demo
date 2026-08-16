@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\CampaignController;
+use App\Http\Controllers\CelebrationController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
@@ -34,6 +35,7 @@ Route::get('/join/{businessSlug}/qr', [JoinController::class, 'qr'])->name('join
 Route::middleware(['auth', 'tenant'])->group(function (): void {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/celebraciones', CelebrationController::class)->name('celebrations.index');
 
     Route::get('/clientes', [CustomerController::class, 'index'])->name('customers.index');
     Route::get('/clientes/nuevo', [CustomerController::class, 'create'])->name('customers.create');

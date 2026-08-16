@@ -154,6 +154,17 @@ class LocalSampleSeeder extends Seeder
                 'public_id' => (string) Str::uuid(),
                 'name' => $name,
                 'gender' => in_array($index, [1, 10, 11], true) ? 'female' : 'male',
+                'birth_date' => match ($index) {
+                    0 => now()->subYears(34)->toDateString(),
+                    1 => now()->subYears(30)->addDays(6)->toDateString(),
+                    2 => now()->subYears(37)->addDays(13)->toDateString(),
+                    default => null,
+                },
+                'anniversary_date' => match ($index) {
+                    3 => now()->subYears(7)->toDateString(),
+                    4 => now()->subYears(5)->addDays(10)->toDateString(),
+                    default => null,
+                },
                 'phone_raw' => '900000'.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
                 'phone_e164' => '+51900000'.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
                 'source' => $index % 3 === 0 ? 'whatsapp_qr' : 'admin',

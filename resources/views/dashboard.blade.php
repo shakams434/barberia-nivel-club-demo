@@ -14,6 +14,25 @@
     @livewire('quick-customer-search')
 </section>
 
+<section class="card mt-5 border-[#d4af37]/25 bg-gradient-to-r from-[#282312] to-[#191a1c]">
+    <div class="flex items-start justify-between gap-4">
+        <div><p class="eyebrow">Hoy celebramos</p><h2 class="mt-1 text-lg font-black">{{ $todayCelebrations->isEmpty() ? 'Nadie celebra hoy' : ($todayCelebrations->count() === 1 ? '1 fecha importante hoy' : $todayCelebrations->count().' fechas importantes hoy') }}</h2></div>
+        <a class="btn btn-ghost min-h-10 shrink-0 text-xs" href="{{ route('celebrations.index') }}">Ver próximos días</a>
+    </div>
+    @if($todayCelebrations->isEmpty())
+        <p class="mt-3 text-sm text-[#8f959f]">No hay cumpleaños ni aniversarios hoy. Puedes añadir estas fechas desde la ficha de cada cliente.</p>
+    @else
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            @foreach($todayCelebrations as $celebration)
+                <a href="{{ route('customers.show', $celebration['customer']) }}" class="card-soft card-interactive flex items-center gap-3">
+                    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#d4af37]/12 text-lg">{{ $celebration['type'] === 'birthday' ? '🎂' : '✦' }}</span>
+                    <span class="min-w-0"><strong class="block truncate text-sm">{{ $celebration['customer']->name }}</strong><span class="text-xs text-[#9da2ab]">{{ $celebration['label'] }}{{ $celebration['years'] > 0 ? ' · '.$celebration['years'].' años' : '' }}</span></span>
+                </a>
+            @endforeach
+        </div>
+    @endif
+</section>
+
 <section class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
     @foreach([
         ['Clientes activos', $metrics['active_customers']],

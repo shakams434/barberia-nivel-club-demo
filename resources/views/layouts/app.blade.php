@@ -34,6 +34,7 @@
         <nav class="mt-7 space-y-1">
             <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><span aria-hidden="true">◆</span> Inicio</a>
             <a class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}" href="{{ route('customers.index') }}"><span aria-hidden="true">●</span> Clientes</a>
+            <a class="nav-link {{ request()->routeIs('celebrations.*') ? 'active' : '' }}" href="{{ route('celebrations.index') }}"><span aria-hidden="true">✶</span> Celebraciones</a>
             <a class="nav-link {{ request()->routeIs('campaigns.*') ? 'active' : '' }}" href="{{ route('campaigns.index') }}"><span aria-hidden="true">✦</span> Campañas</a>
             <a class="nav-link {{ request()->routeIs('messages.*') ? 'active' : '' }}" href="{{ route('messages.index') }}"><span aria-hidden="true">▣</span> Mensajes</a>
             <a class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}"><span aria-hidden="true">⚙</span> Configuración</a>
@@ -105,6 +106,7 @@
 <dialog id="more-menu-dialog" class="dialog-panel" aria-labelledby="more-menu-title">
     <div class="dialog-header"><h2 id="more-menu-title" class="text-xl font-black">Más opciones</h2><button type="button" class="btn btn-ghost min-h-10 px-3 text-xl" data-close-dialog aria-label="Cerrar">×</button></div>
     <div class="dialog-body grid gap-3">
+        <a class="btn btn-secondary justify-start" href="{{ route('celebrations.index') }}">✶ Celebraciones</a>
         <a class="btn btn-secondary justify-start" href="{{ route('messages.index') }}">▣ Mensajes</a>
         <a class="btn btn-secondary justify-start" href="{{ route('settings.index') }}">⚙ Configuración</a>
         <a class="btn btn-secondary justify-start" href="{{ route('customers.create') }}">＋ Nuevo cliente</a>

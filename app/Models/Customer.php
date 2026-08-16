@@ -16,7 +16,7 @@ class Customer extends Model
     use BelongsToBusiness, HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'business_id', 'tier_id', 'public_id', 'name', 'gender', 'phone_raw', 'phone_e164', 'source',
+        'business_id', 'tier_id', 'public_id', 'name', 'gender', 'birth_date', 'anniversary_date', 'phone_raw', 'phone_e164', 'source',
         'phone_ciphertext', 'phone_hash', 'phone_last4', 'status', 'notes', 'xp_total',
         'level', 'joined_at', 'last_visit_at', 'anonymized_at',
     ];
@@ -27,6 +27,8 @@ class Customer extends Model
     {
         return [
             'phone_ciphertext' => 'encrypted',
+            'birth_date' => 'date',
+            'anniversary_date' => 'date',
             'joined_at' => 'datetime',
             'last_visit_at' => 'datetime',
             'anonymized_at' => 'datetime',

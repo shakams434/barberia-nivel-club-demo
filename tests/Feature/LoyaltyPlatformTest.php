@@ -211,6 +211,70 @@ class LoyaltyPlatformTest extends TestCase
         ])->assertSessionHasErrors('phone');
     }
 
+    public function test_customer_celebration_dates_are_optional_editable_and_reject_future_dates(): void
+    {
+        $customer = $this->customer();
+
+        $this->actingAs($this->admin)->put(route('customers.update', $customer), [
+            'name' => $customer->name,
+            'phone' => $customer->phone_e164,
+            'status' => 'active',
+            'birth_date' => '1994-08-15',
+            'anniversary_date' => '2020-08-20',
+        ])->assertRedirect(route('customers.show', $customer));
+
+        $customer->refresh();
+        $this->assertSame('1994-08-15', $customer->birth_date->format('Y-m-d'));
+        $this->assertSame('2020-08-20', $customer->anniversary_date->format('Y-m-d'));
+        $this->actingAs($this->admin)->get(route('customers.show', $customer))
+            ->assertOk()
+            ->assertSee('Celebraciones')
+            ->assertSee('Cumpleaños');
+
+        $this->actingAs($this->admin)->put(route('customers.update', $customer), [
+            'name' => $customer->name,
+            'phone' => $customer->phone_e164,
+            'status' => 'active',
+            'birth_date' => now()->addDay()->toDateString(),
+        ])->assertSessionHasErrors('birth_date');
+    }
+
+    public function test_celebrations_are_synchronized_between_dashboard_module_and_search(): void
+    {
+        $today = now()->timezone($this->business->timezone)->startOfDay();
+        $birthday = $this->customer([
+            'name' => 'Ana Cumpleaños',
+            'birth_date' => $today->copy()->subYears(30)->toDateString(),
+        ]);
+        $anniversary = $this->customer([
+            'name' => 'Marco Aniversario',
+            'anniversary_date' => $today->copy()->subYears(5)->toDateString(),
+        ]);
+        $this->customer([
+            'name' => 'Cliente Inactivo',
+            'status' => 'inactive',
+            'birth_date' => $today->copy()->subYears(25)->toDateString(),
+        ]);
+
+        $this->actingAs($this->admin)->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Hoy celebramos')
+            ->assertSee($birthday->name)
+            ->assertSee($anniversary->name)
+            ->assertDontSee('Cliente Inactivo');
+
+        $this->actingAs($this->admin)->get(route('celebrations.index'))
+            ->assertOk()
+            ->assertSee($birthday->name)
+            ->assertSee($anniversary->name)
+            ->assertDontSee('Cliente Inactivo');
+
+        $this->actingAs($this->admin)->get(route('celebrations.index', ['q' => 'Ana']))
+            ->assertOk()
+            ->assertSee('1 cliente encontrado')
+            ->assertSee($birthday->name);
+    }
+
     public function test_business_scope_blocks_cross_tenant_resources(): void
     {
         $otherBusiness = Business::factory()->create();

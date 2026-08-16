@@ -12,13 +12,15 @@ use App\Models\Visit;
 use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppTemplate;
+use App\Services\CelebrationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View
+    public function __invoke(CelebrationService $celebrations): View
     {
+        $today = now()->timezone(auth()->user()->business->timezone)->startOfDay();
         $metrics = [
             'active_customers' => Customer::where('status', 'active')->count(),
             'daily_visits' => Visit::where('status', 'registered')->where('visited_at', '>=', now()->startOfDay())->count(),
@@ -51,6 +53,8 @@ class DashboardController extends Controller
             ['label' => 'Canal de WhatsApp definido', 'done' => $account && in_array($account->provider, ['fake', 'meta'], true)],
         ];
 
-        return view('dashboard', compact('metrics', 'tierDistribution', 'recentVisits', 'recentRedemptions', 'recentCampaigns', 'checklist'));
+        $todayCelebrations = $celebrations->forDate($today);
+
+        return view('dashboard', compact('metrics', 'tierDistribution', 'recentVisits', 'recentRedemptions', 'recentCampaigns', 'checklist', 'todayCelebrations'));
     }
 }

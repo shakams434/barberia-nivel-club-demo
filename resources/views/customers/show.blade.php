@@ -35,6 +35,15 @@
         </div>
 
         <div class="card">
+            <div class="flex items-start justify-between gap-3"><div><p class="eyebrow">Fechas importantes</p><h2 class="mt-1 text-lg font-black">Celebraciones</h2></div><a class="btn btn-ghost min-h-10 text-xs" href="{{ route('customers.edit', $customer) }}">Editar fechas</a></div>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                <div class="card-soft"><span class="text-lg" aria-hidden="true">🎂</span><p class="mt-2 text-xs text-[#858b95]">Cumpleaños</p><strong class="mt-1 block text-sm">{{ $customer->birth_date?->translatedFormat('d \d\e F') ?? 'No registrado' }}</strong></div>
+                <div class="card-soft"><span class="text-lg" aria-hidden="true">✦</span><p class="mt-2 text-xs text-[#858b95]">Aniversario</p><strong class="mt-1 block text-sm">{{ $customer->anniversary_date?->translatedFormat('d \d\e F') ?? 'No registrado' }}</strong></div>
+            </div>
+            <p class="mt-3 text-[11px] leading-5 text-[#777d87]">Estas fechas aparecen en Inicio y Celebraciones. No activan mensajes por WhatsApp.</p>
+        </div>
+
+        <div class="card">
             <div class="flex items-center justify-between"><div><p class="eyebrow">Recompensas</p><h2 class="mt-1 text-lg font-black">Estado de beneficios</h2></div><span class="badge badge-neutral">{{ $customer->rewards->where('status','available')->count() }} disponibles</span></div>
             <div class="mt-4 grid gap-3 sm:grid-cols-2">
                 @forelse($customer->rewards as $customerReward)
