@@ -16,10 +16,76 @@ class WhatsAppConnectionController extends Controller
 {
     public function index(Request $request): View
     {
+        $embeddedReady = filled(config('whatsapp.app_id'))
+            && filled(config('whatsapp.app_secret'))
+            && filled(config('whatsapp.embedded_signup_configuration_id'));
+
         return view('whatsapp.connection', [
             'account' => WhatsAppAccount::first(),
             'callbackUrl' => url('/api/webhooks/whatsapp'),
+            'embeddedReady' => $embeddedReady,
+            'metaAppId' => $embeddedReady ? config('whatsapp.app_id') : null,
+            'embeddedConfigurationId' => $embeddedReady ? config('whatsapp.embedded_signup_configuration_id') : null,
         ]);
+    }
+
+    public function embedded(Request $request, MetaWhatsAppConnectionService $meta, AuditService $audit): RedirectResponse
+    {
+        if (blank(config('whatsapp.app_id')) || blank(config('whatsapp.app_secret')) || blank(config('whatsapp.embedded_signup_configuration_id'))) {
+            return back()->withErrors(['embedded' => 'La conexión automática todavía no está habilitada por el operador de la plataforma.']);
+        }
+
+        $account = WhatsAppAccount::first();
+        $data = $request->validate([
+            'authorization_code' => ['required', 'string', 'max:2048'],
+            'waba_id' => ['required', 'string', 'max:120', 'regex:/^\d+$/'],
+            'phone_number_id' => [
+                'required', 'string', 'max:120', 'regex:/^\d+$/',
+                Rule::unique('whatsapp_accounts', 'phone_number_id')->ignore($account?->id),
+            ],
+        ]);
+
+        try {
+            $accessToken = $meta->exchangeAuthorizationCode($data['authorization_code']);
+            $inspection = $meta->inspect($data['waba_id'], $data['phone_number_id'], $accessToken);
+        } catch (\Throwable $exception) {
+            return back()->withErrors(['embedded' => $exception->getMessage()]);
+        }
+
+        $account ??= new WhatsAppAccount(['business_id' => $request->user()->business_id]);
+        $account->fill([
+            'provider' => 'meta',
+            'connection_mode' => 'embedded',
+            'waba_id' => $data['waba_id'],
+            'phone_number_id' => $data['phone_number_id'],
+            'phone_e164' => $inspection['phone_e164'],
+            'verified_name' => $inspection['verified_name'],
+            'quality_rating' => $inspection['quality_rating'],
+            'connection_status' => 'connected',
+            'last_error' => null,
+            'send_enabled' => false,
+            'configuration_checked_at' => now(),
+            'webhook_verify_token' => null,
+            'webhook_subscribed_at' => null,
+        ]);
+        $account->access_token = $accessToken;
+        $account->app_secret = null;
+        $account->save();
+
+        try {
+            $meta->subscribeWebhook($account);
+            $account->update(['webhook_subscribed_at' => now()]);
+        } catch (\Throwable $exception) {
+            $account->update(['last_error' => Str::limit($exception->getMessage(), 350)]);
+        }
+
+        $audit->record('whatsapp.connected_embedded', $account, after: [
+            'phone_number_id' => $account->phone_number_id,
+            'verified_name' => $account->verified_name,
+            'webhook_subscribed' => (bool) $account->webhook_subscribed_at,
+        ], request: $request);
+
+        return redirect()->route('whatsapp.connection')->with('success', 'WhatsApp quedó vinculado con Meta. Envía un mensaje al número para comprobar la recepción y activar las respuestas.');
     }
 
     public function store(Request $request, MetaWhatsAppConnectionService $meta, AuditService $audit): RedirectResponse
@@ -49,6 +115,7 @@ class WhatsAppConnectionController extends Controller
         $account ??= new WhatsAppAccount(['business_id' => $request->user()->business_id]);
         $account->fill([
             'provider' => 'meta',
+            'connection_mode' => 'manual',
             'waba_id' => $data['waba_id'],
             'phone_number_id' => $data['phone_number_id'],
             'phone_e164' => $inspection['phone_e164'],

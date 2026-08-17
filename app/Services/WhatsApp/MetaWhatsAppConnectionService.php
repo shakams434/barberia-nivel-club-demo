@@ -9,6 +9,25 @@ use Illuminate\Support\Str;
 
 class MetaWhatsAppConnectionService
 {
+    public function exchangeAuthorizationCode(string $code): string
+    {
+        $response = Http::acceptJson()
+            ->timeout(config('whatsapp.timeout_seconds', 8))
+            ->connectTimeout(4)
+            ->get($this->graphUrl('oauth/access_token'), [
+                'client_id' => config('whatsapp.app_id'),
+                'client_secret' => config('whatsapp.app_secret'),
+                'code' => $code,
+            ]);
+
+        $token = $response->json('access_token');
+        if (! $response->successful() || blank($token)) {
+            throw new \RuntimeException($this->errorMessage($response->json(), 'Meta no pudo completar la autorización. Vuelve a abrir la conexión.'));
+        }
+
+        return (string) $token;
+    }
+
     public function inspect(string $wabaId, string $phoneNumberId, string $accessToken): array
     {
         $phones = $this->request($accessToken)

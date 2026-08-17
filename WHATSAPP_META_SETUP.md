@@ -8,25 +8,27 @@ La aplicación usa exclusivamente la API oficial de Meta. No necesita WhatsApp W
 2. Portafolio comercial y aplicación en Meta for Developers.
 3. Producto WhatsApp agregado a la aplicación.
 4. Número autorizado para WhatsApp Cloud API.
-5. WABA ID, Phone Number ID, token permanente de un usuario del sistema y App Secret.
+5. Para la conexión automática, la aplicación de Meta debe tener configurado **Embedded Signup**.
 
-El usuario del sistema debe tener los permisos `whatsapp_business_management` y `whatsapp_business_messaging`. La plataforma genera por sí sola el token de verificación del webhook; el administrador no tiene que inventarlo.
+El operador de la plataforma configura una sola vez `META_APP_ID`, `META_APP_SECRET`, `META_EMBEDDED_SIGNUP_CONFIGURATION_ID` y `META_WEBHOOK_VERIFY_TOKEN` en Render. La aplicación de Meta necesita los permisos `whatsapp_business_management` y `whatsapp_business_messaging` y la revisión correspondiente de Meta para usarse con negocios externos.
+
+Después de esa configuración global, el administrador del negocio no copia API, tokens ni secretos: pulsa **Conectar con Meta**, inicia sesión y elige su cuenta y número. La plataforma recibe una autorización segura, comprueba el WABA y el número, suscribe el webhook y guarda el token cifrado.
 
 No pegues estos valores en tickets, logs, capturas o repositorios.
 
 ## Configuración inicial
 
-En la aplicación abre **WhatsApp → Conexión**. El asistente solicita únicamente los cuatro datos anteriores, consulta la API oficial de Meta y comprueba que el número realmente pertenezca al WABA antes de guardar nada.
+En la aplicación abre **WhatsApp → Conexión** y pulsa **Conectar con Meta**. Si Embedded Signup todavía no está habilitado para la aplicación de Meta, la pantalla muestra una configuración manual avanzada como respaldo. Esta solicita WABA ID, Phone Number ID, token permanente de un usuario del sistema y App Secret, y comprueba los datos contra Meta antes de guardarlos.
 
-El número visible, el nombre verificado y la calidad se leen desde Meta. El token y el App Secret se cifran en el servidor y nunca vuelven a mostrarse completos. No deben duplicarse en el archivo `.env`.
+El número visible, el nombre verificado y la calidad se leen desde Meta. Los secretos se cifran en el servidor y nunca vuelven a mostrarse completos. En el flujo automático, el App Secret pertenece a la plataforma y no se copia en cada negocio.
 
 ## Webhook
 
-En Meta configura:
+Con Embedded Signup, la plataforma suscribe automáticamente la aplicación al WABA. En la aplicación de Meta se configura una sola vez:
 
 ```text
 Callback URL: https://<TU_DOMINIO>/api/webhooks/whatsapp
-Verify token: el valor generado y mostrado por la plataforma
+Verify token: el valor META_WEBHOOK_VERIFY_TOKEN guardado en Render
 ```
 
 Suscribe al menos `messages`. La aplicación:
@@ -62,9 +64,9 @@ La creación y aprobación se realiza en **WhatsApp Manager**. Después, en **Co
 
 ## Activación controlada
 
-1. Guarda y comprueba los cuatro datos con Meta.
-2. Copia la URL y el token de verificación en la configuración del webhook de Meta.
-3. Pulsa **Suscribir aplicación al WABA**.
+1. Pulsa **Conectar con Meta** y completa la ventana oficial.
+2. Comprueba que API, número y webhook aparezcan correctos.
+3. Si usaste el respaldo manual, pulsa **Suscribir aplicación al WABA**.
 4. Envía un WhatsApp desde un teléfono al número conectado.
 5. Confirma que aparece en **WhatsApp → Conversaciones**.
 6. Pulsa **Activar WhatsApp**.

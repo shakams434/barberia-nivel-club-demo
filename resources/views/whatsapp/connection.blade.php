@@ -23,33 +23,54 @@
 <div class="mt-5 grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
     <div class="space-y-5">
         <section class="card">
-            <div class="flex gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#d4af37] font-black text-black">1</span><div><h2 class="font-black">Prepara tu cuenta en Meta</h2><p class="mt-1 text-sm leading-6 text-[#9da2ab]">Necesitas un portafolio empresarial, una aplicación de Meta con WhatsApp y un número añadido a WhatsApp Business Platform.</p></div></div>
-            <div class="mt-4 grid gap-2 sm:grid-cols-2 text-sm">@foreach(['Acceso de administrador en Meta','WhatsApp Business Account creada','Número disponible o ya migrado','Usuario del sistema con permisos'] as $item)<div class="card-soft flex items-center gap-2"><span class="text-emerald-200">✓</span>{{ $item }}</div>@endforeach</div>
+            <div class="flex gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#d4af37] font-black text-black">1</span><div><h2 class="font-black">Ten a mano tu cuenta de Meta</h2><p class="mt-1 text-sm leading-6 text-[#9da2ab]">El administrador solo necesita acceso a Meta Business y decidir qué número de WhatsApp conectará.</p></div></div>
+            <div class="mt-4 grid gap-2 sm:grid-cols-2 text-sm">@foreach(['Acceso de administrador en Meta','Número de WhatsApp Business','Permiso para aceptar la conexión','Método de pago configurado en Meta'] as $item)<div class="card-soft flex items-center gap-2"><span class="text-emerald-200">✓</span>{{ $item }}</div>@endforeach</div>
             <a class="btn btn-secondary mt-4" href="https://business.facebook.com/wa/manage/home/" target="_blank" rel="noopener noreferrer">Abrir WhatsApp Manager ↗</a>
         </section>
 
         <section class="card">
-            <div class="flex gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#d4af37] font-black text-black">2</span><div><h2 class="font-black">Copia cuatro datos de Meta</h2><p class="mt-1 text-sm leading-6 text-[#9da2ab]">No existe una “API key” única. Meta identifica la cuenta, el número y autoriza el acceso con un token.</p></div></div>
-            <form method="POST" action="{{ route('whatsapp.connection.store') }}" class="mt-5 grid gap-4 sm:grid-cols-2">
-                @csrf @method('PUT')
-                <div><label class="label" for="waba_id">1. WABA ID</label><input class="input" id="waba_id" name="waba_id" value="{{ old('waba_id', $account?->provider === 'meta' ? $account?->waba_id : '') }}" inputmode="numeric" required placeholder="Ej. 123456789012345"><p class="mt-1.5 text-[11px] text-[#777d87]">WhatsApp Manager → Configuración → Cuenta.</p></div>
-                <div><label class="label" for="phone_number_id">2. Phone Number ID</label><input class="input" id="phone_number_id" name="phone_number_id" value="{{ old('phone_number_id', $account?->provider === 'meta' ? $account?->phone_number_id : '') }}" inputmode="numeric" required placeholder="Ej. 109876543210987"><p class="mt-1.5 text-[11px] text-[#777d87]">Meta App → WhatsApp → Configuración de API.</p></div>
-                <div><label class="label" for="access_token">3. Token permanente</label><input class="input" id="access_token" name="access_token" type="password" autocomplete="new-password" placeholder="{{ $account?->access_token ? 'Ya guardado · escribe solo para reemplazar' : 'Token de usuario del sistema' }}" {{ $account?->access_token ? '' : 'required' }}><p class="mt-1.5 text-[11px] text-[#777d87]">Permisos: whatsapp_business_management y whatsapp_business_messaging.</p></div>
-                <div><label class="label" for="app_secret">4. App Secret</label><input class="input" id="app_secret" name="app_secret" type="password" autocomplete="new-password" placeholder="{{ $account?->app_secret ? 'Ya guardado · escribe solo para reemplazar' : 'App Secret de la aplicación Meta' }}" {{ $account?->app_secret ? '' : 'required' }}><p class="mt-1.5 text-[11px] text-[#777d87]">Se usa para comprobar la firma de mensajes entrantes.</p></div>
-                <div class="sm:col-span-2 rounded-xl border border-white/10 bg-black/15 p-4 text-sm"><strong class="block">Primero guardamos la conexión de forma segura</strong><span class="mt-1 block text-xs leading-5 text-[#858b95]">Los envíos se activan recién al final, después de comprobar que Meta puede recibir un mensaje. Los secretos se guardan cifrados y nunca vuelven a mostrarse.</span></div>
-                <div class="sm:col-span-2 flex justify-end"><button class="btn btn-primary" type="submit" data-busy-text="Comprobando…">Comprobar y guardar</button></div>
-            </form>
+            <div class="flex gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#d4af37] font-black text-black">2</span><div><h2 class="font-black">Conecta tu WhatsApp</h2><p class="mt-1 text-sm leading-6 text-[#9da2ab]">La opción recomendada obtiene los identificadores y la autorización directamente desde Meta.</p></div></div>
+
+            <div class="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-300/7 p-5">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><span class="badge badge-success">Recomendado</span><h3 class="mt-2 font-black">Conexión automática con Meta</h3><p class="mt-1 text-xs leading-5 text-[#9da2ab]">Inicia sesión, elige el negocio y selecciona el número. No tendrás que copiar WABA, Phone Number ID ni tokens.</p></div>
+                    @if($embeddedReady)<button class="btn btn-primary shrink-0" type="button" data-meta-connect data-app-id="{{ $metaAppId }}" data-config-id="{{ $embeddedConfigurationId }}" data-api-version="{{ config('whatsapp.graph_api_version') }}">Conectar con Meta</button>@else<span class="badge badge-warning shrink-0">Pendiente del operador</span>@endif
+                </div>
+                @unless($embeddedReady)<p class="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/5 p-3 text-xs leading-5 text-amber-100/80">La plataforma ya está preparada. El botón se habilitará cuando el operador configure y apruebe la aplicación de Meta en Render.</p>@endunless
+                <p class="mt-3 hidden text-xs text-[#9da2ab]" data-meta-connect-status aria-live="polite"></p>
+            </div>
+
+            @if($embeddedReady)
+                <form method="POST" action="{{ route('whatsapp.connection.embedded') }}" class="hidden" data-meta-connect-form>@csrf<input type="hidden" name="authorization_code" data-meta-code><input type="hidden" name="waba_id" data-meta-waba><input type="hidden" name="phone_number_id" data-meta-phone></form>
+            @endif
+
+            <details class="mt-4 rounded-xl border border-white/10 p-4" @if(!$embeddedReady || old('waba_id')) open @endif>
+                <summary class="cursor-pointer text-sm font-black">Configuración manual avanzada</summary>
+                <p class="mt-2 text-xs leading-5 text-[#858b95]">Úsala solo si administras tu propia aplicación de Meta y ya tienes sus credenciales técnicas.</p>
+                <form method="POST" action="{{ route('whatsapp.connection.store') }}" class="mt-5 grid gap-4 sm:grid-cols-2">
+                    @csrf @method('PUT')
+                    <div><label class="label" for="waba_id">1. WABA ID</label><input class="input" id="waba_id" name="waba_id" value="{{ old('waba_id', $account?->provider === 'meta' ? $account?->waba_id : '') }}" inputmode="numeric" required placeholder="Ej. 123456789012345"><p class="mt-1.5 text-[11px] text-[#777d87]">WhatsApp Manager → Configuración → Cuenta.</p></div>
+                    <div><label class="label" for="phone_number_id">2. Phone Number ID</label><input class="input" id="phone_number_id" name="phone_number_id" value="{{ old('phone_number_id', $account?->provider === 'meta' ? $account?->phone_number_id : '') }}" inputmode="numeric" required placeholder="Ej. 109876543210987"><p class="mt-1.5 text-[11px] text-[#777d87]">Meta App → WhatsApp → Configuración de API.</p></div>
+                    <div><label class="label" for="access_token">3. Token permanente</label><input class="input" id="access_token" name="access_token" type="password" autocomplete="new-password" placeholder="{{ $account?->access_token ? 'Ya guardado · escribe solo para reemplazar' : 'Token de usuario del sistema' }}" {{ $account?->access_token ? '' : 'required' }}><p class="mt-1.5 text-[11px] text-[#777d87]">Permisos: whatsapp_business_management y whatsapp_business_messaging.</p></div>
+                    <div><label class="label" for="app_secret">4. App Secret</label><input class="input" id="app_secret" name="app_secret" type="password" autocomplete="new-password" placeholder="{{ $account?->app_secret ? 'Ya guardado · escribe solo para reemplazar' : 'App Secret de la aplicación Meta' }}" {{ $account?->app_secret ? '' : 'required' }}><p class="mt-1.5 text-[11px] text-[#777d87]">Se usa para comprobar la firma de mensajes entrantes.</p></div>
+                    <div class="sm:col-span-2 rounded-xl border border-white/10 bg-black/15 p-4 text-sm"><strong class="block">Primero guardamos la conexión de forma segura</strong><span class="mt-1 block text-xs leading-5 text-[#858b95]">Los envíos se activan al final. Los secretos se guardan cifrados y nunca vuelven a mostrarse.</span></div>
+                    <div class="sm:col-span-2 flex justify-end"><button class="btn btn-secondary" type="submit" data-busy-text="Comprobando…">Comprobar conexión manual</button></div>
+                </form>
+            </details>
         </section>
     </div>
 
     <div class="space-y-5">
         <section class="card">
-            <div class="flex gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#d4af37] font-black text-black">3</span><div><h2 class="font-black">Activa la recepción</h2><p class="mt-1 text-sm leading-6 text-[#9da2ab]">Copia estos dos valores en Meta App → WhatsApp → Configuración → Webhook.</p></div></div>
-            <div class="mt-4 space-y-3">
-                <div><label class="label">URL de devolución</label><div class="flex gap-2"><input class="input min-w-0" readonly value="{{ $callbackUrl }}" data-copy-source="callback"><button class="btn btn-secondary shrink-0 px-3" type="button" data-copy-target="callback">Copiar</button></div></div>
-                <div><label class="label">Token de verificación</label>@if($account?->webhook_verify_token)<div class="flex gap-2"><input class="input min-w-0" readonly value="{{ $account->webhook_verify_token }}" data-copy-source="verify"><button class="btn btn-secondary shrink-0 px-3" type="button" data-copy-target="verify">Copiar</button></div>@else<div class="rounded-xl border border-dashed border-white/12 p-4 text-sm text-[#858b95]">Se generará automáticamente cuando guardes los datos del paso 2.</div>@endif</div>
-            </div>
-            @if($connected)<form method="POST" action="{{ route('whatsapp.connection.subscribe') }}" class="mt-4">@csrf<button class="btn btn-primary w-full" type="submit" data-busy-text="Suscribiendo…">Suscribir aplicación al WABA</button></form>@endif
+            <div class="flex gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#d4af37] font-black text-black">3</span><div><h2 class="font-black">Activa la recepción</h2><p class="mt-1 text-sm leading-6 text-[#9da2ab]">La conexión automática configura esta parte por ti.</p></div></div>
+            @if($account?->connection_mode === 'embedded')
+                <div class="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-300/7 p-4 text-sm text-emerald-100"><strong class="block">Webhook administrado por la plataforma</strong><span class="mt-1 block text-xs text-emerald-100/70">Meta enviará los mensajes del número conectado directamente a esta bandeja.</span></div>
+            @else
+                <div class="mt-4 space-y-3">
+                    <div><label class="label">URL de devolución</label><div class="flex gap-2"><input class="input min-w-0" readonly value="{{ $callbackUrl }}" data-copy-source="callback"><button class="btn btn-secondary shrink-0 px-3" type="button" data-copy-target="callback">Copiar</button></div></div>
+                    <div><label class="label">Token de verificación</label>@if($account?->webhook_verify_token)<div class="flex gap-2"><input class="input min-w-0" readonly value="{{ $account->webhook_verify_token }}" data-copy-source="verify"><button class="btn btn-secondary shrink-0 px-3" type="button" data-copy-target="verify">Copiar</button></div>@else<div class="rounded-xl border border-dashed border-white/12 p-4 text-sm text-[#858b95]">Se generará automáticamente cuando guardes la conexión manual.</div>@endif</div>
+                </div>
+            @endif
+            @if($connected && !$webhookReady)<form method="POST" action="{{ route('whatsapp.connection.subscribe') }}" class="mt-4">@csrf<button class="btn btn-primary w-full" type="submit" data-busy-text="Suscribiendo…">Completar suscripción del webhook</button></form>@endif
         </section>
 
         <section class="card">

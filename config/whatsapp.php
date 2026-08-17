@@ -4,6 +4,8 @@ return [
     'provider' => env('WHATSAPP_PROVIDER', 'fake'),
     'send_enabled' => (bool) env('WHATSAPP_SEND_ENABLED', false),
     'graph_api_version' => env('META_GRAPH_API_VERSION', 'v25.0'),
+    'app_id' => env('META_APP_ID'),
+    'embedded_signup_configuration_id' => env('META_EMBEDDED_SIGNUP_CONFIGURATION_ID'),
     'waba_id' => env('META_WABA_ID'),
     'phone_number_id' => env('META_PHONE_NUMBER_ID'),
     'access_token' => env('META_ACCESS_TOKEN'),

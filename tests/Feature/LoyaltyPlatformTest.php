@@ -1062,6 +1062,63 @@ class LoyaltyPlatformTest extends TestCase
         $this->assertSame('fake', WhatsAppAccount::firstOrFail()->provider);
     }
 
+    public function test_embedded_signup_exchanges_the_code_and_connects_without_asking_the_admin_for_secrets(): void
+    {
+        $previous = [
+            'app_id' => config('whatsapp.app_id'),
+            'app_secret' => config('whatsapp.app_secret'),
+            'configuration_id' => config('whatsapp.embedded_signup_configuration_id'),
+        ];
+        config([
+            'whatsapp.app_id' => 'meta-app-123',
+            'whatsapp.app_secret' => 'operator-secret-123456',
+            'whatsapp.embedded_signup_configuration_id' => 'configuration-987',
+        ]);
+        Http::fake(function ($request) {
+            if (str_contains($request->url(), '/oauth/access_token')) {
+                return Http::response(['access_token' => str_repeat('E', 48)]);
+            }
+            if (str_contains($request->url(), '/phone_numbers')) {
+                return Http::response(['data' => [[
+                    'id' => '8877665544',
+                    'display_phone_number' => '+51 988 777 666',
+                    'verified_name' => 'Barbería Meta',
+                    'quality_rating' => 'GREEN',
+                ]]]);
+            }
+
+            return Http::response(['success' => true]);
+        });
+
+        try {
+            $this->actingAs($this->admin)->post(route('whatsapp.connection.embedded'), [
+                'authorization_code' => 'temporary-meta-code',
+                'waba_id' => '112233445566',
+                'phone_number_id' => '8877665544',
+            ])->assertRedirect(route('whatsapp.connection'));
+
+            $account = WhatsAppAccount::firstOrFail();
+            $this->assertSame('embedded', $account->connection_mode);
+            $this->assertSame('connected', $account->connection_status);
+            $this->assertSame('+51988777666', $account->phone_e164);
+            $this->assertNull($account->app_secret);
+            $this->assertNotNull($account->webhook_subscribed_at);
+            $this->assertFalse($account->send_enabled);
+            $this->assertNotSame(str_repeat('E', 48), DB::table('whatsapp_accounts')->value('access_token'));
+            $this->actingAs($this->admin)->get(route('whatsapp.connection'))
+                ->assertOk()
+                ->assertSeeText('Conexión automática con Meta')
+                ->assertSee('data-meta-connect', false)
+                ->assertDontSee('operator-secret-123456');
+        } finally {
+            config([
+                'whatsapp.app_id' => $previous['app_id'],
+                'whatsapp.app_secret' => $previous['app_secret'],
+                'whatsapp.embedded_signup_configuration_id' => $previous['configuration_id'],
+            ]);
+        }
+    }
+
     public function test_agent_can_use_inbox_but_cannot_change_meta_credentials(): void
     {
         $agent = User::factory()->create([

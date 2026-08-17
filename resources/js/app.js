@@ -7,6 +7,31 @@ const openDialog = (dialog) => {
     requestAnimationFrame(() => qs('input:not([type="hidden"]), select, textarea, button', dialog)?.focus());
 };
 
+const loadMetaSdk = (appId, version) => new Promise((resolve, reject) => {
+    if (window.FB) {
+        window.FB.init({ appId, autoLogAppEvents: true, xfbml: false, version });
+        resolve(window.FB);
+        return;
+    }
+
+    const previousInit = window.fbAsyncInit;
+    window.fbAsyncInit = () => {
+        previousInit?.();
+        window.FB.init({ appId, autoLogAppEvents: true, xfbml: false, version });
+        resolve(window.FB);
+    };
+    const existing = document.getElementById('facebook-jssdk');
+    if (existing) return;
+    const script = document.createElement('script');
+    script.id = 'facebook-jssdk';
+    script.async = true;
+    script.defer = true;
+    script.crossOrigin = 'anonymous';
+    script.src = 'https://connect.facebook.net/es_LA/sdk.js';
+    script.onerror = () => reject(new Error('No se pudo cargar la conexión segura de Meta.'));
+    document.head.appendChild(script);
+});
+
 document.addEventListener('submit', (event) => {
     const form = event.target;
     if (event.defaultPrevented || !(form instanceof HTMLFormElement) || form.dataset.noLock === 'true') return;
@@ -49,6 +74,72 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    const metaConnect = qs('[data-meta-connect]');
+    const metaForm = qs('[data-meta-connect-form]');
+    if (metaConnect && metaForm) {
+        const status = qs('[data-meta-connect-status]');
+        const signup = { code: null, wabaId: null, phoneNumberId: null };
+        const setStatus = (message, error = false) => {
+            if (!status) return;
+            status.textContent = message;
+            status.classList.remove('hidden', 'text-rose-200', 'text-[#9da2ab]');
+            status.classList.add(error ? 'text-rose-200' : 'text-[#9da2ab]');
+        };
+        const complete = () => {
+            if (!signup.code || !signup.wabaId || !signup.phoneNumberId) return;
+            qs('[data-meta-code]', metaForm).value = signup.code;
+            qs('[data-meta-waba]', metaForm).value = signup.wabaId;
+            qs('[data-meta-phone]', metaForm).value = signup.phoneNumberId;
+            setStatus('Meta confirmó el número. Estamos terminando la conexión…');
+            metaForm.requestSubmit();
+        };
+
+        window.addEventListener('message', (event) => {
+            let host;
+            try { host = new URL(event.origin).hostname; } catch { return; }
+            if (!['www.facebook.com', 'web.facebook.com'].includes(host)) return;
+            let payload = event.data;
+            if (typeof payload === 'string') {
+                try { payload = JSON.parse(payload); } catch { return; }
+            }
+            if (payload?.type !== 'WA_EMBEDDED_SIGNUP') return;
+            if (payload.event === 'FINISH') {
+                signup.wabaId = String(payload.data?.waba_id || '');
+                signup.phoneNumberId = String(payload.data?.phone_number_id || '');
+                complete();
+            } else if (payload.event === 'CANCEL') {
+                setStatus('La conexión fue cancelada. Puedes intentarlo nuevamente.', true);
+            } else if (payload.event === 'ERROR') {
+                setStatus('Meta no pudo completar la conexión. Revisa tu cuenta e inténtalo nuevamente.', true);
+            }
+        });
+
+        metaConnect.addEventListener('click', async () => {
+            metaConnect.disabled = true;
+            setStatus('Abriendo la conexión segura de Meta…');
+            try {
+                const FB = await loadMetaSdk(metaConnect.dataset.appId, metaConnect.dataset.apiVersion);
+                FB.login((response) => {
+                    metaConnect.disabled = false;
+                    signup.code = response?.authResponse?.code || null;
+                    if (!signup.code) {
+                        setStatus('No se recibió autorización. Vuelve a intentarlo y completa todos los pasos en Meta.', true);
+                        return;
+                    }
+                    complete();
+                }, {
+                    config_id: metaConnect.dataset.configId,
+                    response_type: 'code',
+                    override_default_response_type: true,
+                    extras: { setup: {}, featureType: '', sessionInfoVersion: '3' },
+                });
+            } catch (error) {
+                metaConnect.disabled = false;
+                setStatus(error.message || 'No se pudo abrir Meta.', true);
+            }
+        });
+    }
+
     qsa('[data-copy-target]').forEach((button) => button.addEventListener('click', async () => {
         const source = qs(`[data-copy-source="${button.dataset.copyTarget}"]`);
         if (!source) return;

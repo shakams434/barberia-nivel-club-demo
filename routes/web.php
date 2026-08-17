@@ -74,6 +74,7 @@ Route::middleware(['auth', 'tenant'])->group(function (): void {
     });
     Route::middleware('can:manage-whatsapp')->group(function (): void {
         Route::get('/whatsapp/conexion', [WhatsAppConnectionController::class, 'index'])->name('whatsapp.connection');
+        Route::post('/whatsapp/conexion/meta', [WhatsAppConnectionController::class, 'embedded'])->name('whatsapp.connection.embedded');
         Route::put('/whatsapp/conexion', [WhatsAppConnectionController::class, 'store'])->name('whatsapp.connection.store');
         Route::post('/whatsapp/conexion/comprobar', [WhatsAppConnectionController::class, 'check'])->name('whatsapp.connection.check');
         Route::post('/whatsapp/conexion/suscribir', [WhatsAppConnectionController::class, 'subscribe'])->name('whatsapp.connection.subscribe');
