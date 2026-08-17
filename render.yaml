@@ -59,7 +59,7 @@ services:
       - key: FILESYSTEM_DISK
         value: local
       - key: WHATSAPP_PROVIDER
-        value: fake
+        value: meta
       - key: META_APP_ID
         sync: false
       - key: META_APP_SECRET
