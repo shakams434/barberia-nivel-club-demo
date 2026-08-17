@@ -49,6 +49,18 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    qsa('[data-copy-target]').forEach((button) => button.addEventListener('click', async () => {
+        const source = qs(`[data-copy-source="${button.dataset.copyTarget}"]`);
+        if (!source) return;
+        await navigator.clipboard.writeText(source.value || source.textContent || '');
+        const previous = button.textContent;
+        button.textContent = 'Copiado';
+        setTimeout(() => { button.textContent = previous; }, 1500);
+    }));
+
+    const chatTimeline = qs('[data-chat-timeline]');
+    if (chatTimeline) chatTimeline.scrollTop = chatTimeline.scrollHeight;
+
     qsa('dialog').forEach((dialog) => {
         dialog.addEventListener('click', (event) => {
             if (event.target === dialog) dialog.close();

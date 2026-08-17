@@ -36,7 +36,7 @@
             <a class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}" href="{{ route('customers.index') }}"><span aria-hidden="true">●</span> Clientes</a>
             <a class="nav-link {{ request()->routeIs('celebrations.*') ? 'active' : '' }}" href="{{ route('celebrations.index') }}"><span aria-hidden="true">✶</span> Celebraciones</a>
             <a class="nav-link {{ request()->routeIs('campaigns.*') ? 'active' : '' }}" href="{{ route('campaigns.index') }}"><span aria-hidden="true">✦</span> Campañas</a>
-            <a class="nav-link {{ request()->routeIs('messages.*') ? 'active' : '' }}" href="{{ route('messages.index') }}"><span aria-hidden="true">▣</span> Mensajes</a>
+            <a class="nav-link {{ request()->routeIs('whatsapp.conversations.*') ? 'active' : '' }}" href="{{ route('whatsapp.conversations.index') }}"><span aria-hidden="true">▣</span> WhatsApp</a>
             <a class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}"><span aria-hidden="true">⚙</span> Configuración</a>
         </nav>
 
@@ -107,7 +107,8 @@
     <div class="dialog-header"><h2 id="more-menu-title" class="text-xl font-black">Más opciones</h2><button type="button" class="btn btn-ghost min-h-10 px-3 text-xl" data-close-dialog aria-label="Cerrar">×</button></div>
     <div class="dialog-body grid gap-3">
         <a class="btn btn-secondary justify-start" href="{{ route('celebrations.index') }}">✶ Celebraciones</a>
-        <a class="btn btn-secondary justify-start" href="{{ route('messages.index') }}">▣ Mensajes</a>
+        <a class="btn btn-secondary justify-start" href="{{ route('whatsapp.conversations.index') }}">▣ Conversaciones WhatsApp</a>
+        @can('manage-whatsapp')<a class="btn btn-secondary justify-start" href="{{ route('whatsapp.connection') }}">⚙ Conectar WhatsApp</a>@endcan
         <a class="btn btn-secondary justify-start" href="{{ route('settings.index') }}">⚙ Configuración</a>
         <a class="btn btn-secondary justify-start" href="{{ route('customers.create') }}">＋ Nuevo cliente</a>
         <form method="POST" action="{{ route('logout') }}">@csrf<button class="btn btn-ghost w-full justify-start" type="submit">Cerrar sesión</button></form>

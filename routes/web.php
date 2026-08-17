@@ -15,6 +15,8 @@ use App\Http\Controllers\RewardRedemptionController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\VisitController;
+use App\Http\Controllers\WhatsAppConnectionController;
+use App\Http\Controllers\WhatsAppConversationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : redirect()->route('login'));
@@ -60,9 +62,23 @@ Route::middleware(['auth', 'tenant'])->group(function (): void {
     Route::post('/campanas/{campaign}/reanudar', [CampaignController::class, 'resume'])->name('campaigns.resume');
     Route::post('/campanas/{campaign}/cancelar', [CampaignController::class, 'cancel'])->name('campaigns.cancel');
 
-    Route::get('/mensajes', [MessageController::class, 'index'])->name('messages.index');
-    Route::post('/mensajes/{message}/reintentar', [MessageController::class, 'retry'])->name('messages.retry');
-    Route::post('/mensajes/{message}/simular', [MessageController::class, 'simulate'])->name('messages.simulate');
+    Route::middleware('can:use-whatsapp-inbox')->group(function (): void {
+        Route::get('/mensajes', [MessageController::class, 'index'])->name('messages.index');
+        Route::post('/mensajes/{message}/reintentar', [MessageController::class, 'retry'])->name('messages.retry');
+        Route::post('/mensajes/{message}/simular', [MessageController::class, 'simulate'])->name('messages.simulate');
+        Route::get('/whatsapp/conversaciones', [WhatsAppConversationController::class, 'index'])->name('whatsapp.conversations.index');
+        Route::get('/whatsapp/conversaciones/{conversation}', [WhatsAppConversationController::class, 'show'])->name('whatsapp.conversations.show');
+        Route::post('/whatsapp/conversaciones/{conversation}/responder', [WhatsAppConversationController::class, 'reply'])
+            ->middleware('throttle:whatsapp-replies')
+            ->name('whatsapp.conversations.reply');
+    });
+    Route::middleware('can:manage-whatsapp')->group(function (): void {
+        Route::get('/whatsapp/conexion', [WhatsAppConnectionController::class, 'index'])->name('whatsapp.connection');
+        Route::put('/whatsapp/conexion', [WhatsAppConnectionController::class, 'store'])->name('whatsapp.connection.store');
+        Route::post('/whatsapp/conexion/comprobar', [WhatsAppConnectionController::class, 'check'])->name('whatsapp.connection.check');
+        Route::post('/whatsapp/conexion/suscribir', [WhatsAppConnectionController::class, 'subscribe'])->name('whatsapp.connection.subscribe');
+        Route::post('/whatsapp/conexion/activar', [WhatsAppConnectionController::class, 'toggle'])->name('whatsapp.connection.toggle');
+    });
 
     Route::get('/configuracion', [SettingsController::class, 'index'])->name('settings.index');
     Route::put('/configuracion/negocio', [SettingsController::class, 'updateBusiness'])->name('settings.business');
@@ -73,13 +89,12 @@ Route::middleware(['auth', 'tenant'])->group(function (): void {
     Route::put('/configuracion/rangos/{tier}', [SettingsController::class, 'updateTier'])->name('settings.tiers.update');
     Route::post('/configuracion/recompensas', [SettingsController::class, 'storeReward'])->name('settings.rewards.store');
     Route::put('/configuracion/recompensas/{reward}', [SettingsController::class, 'updateReward'])->name('settings.rewards.update');
-    Route::put('/configuracion/whatsapp', [SettingsController::class, 'updateWhatsApp'])->name('settings.whatsapp');
     Route::put('/configuracion/contrasena', [SettingsController::class, 'updatePassword'])->name('settings.password');
-    Route::get('/configuracion/whatsapp/health', [SettingsController::class, 'health'])->name('settings.whatsapp.health');
-    Route::post('/configuracion/whatsapp/probar', [SettingsController::class, 'testWhatsApp'])->name('settings.whatsapp.test');
-    Route::post('/configuracion/plantillas', [TemplateController::class, 'store'])->name('templates.store');
-    Route::put('/configuracion/plantillas/{template}', [TemplateController::class, 'update'])->name('templates.update');
-    Route::put('/configuracion/plantillas/{template}/estado', [TemplateController::class, 'status'])->name('templates.status');
-    Route::put('/configuracion/automatizaciones', [MessageAutomationController::class, 'update'])->name('automations.update');
-    Route::delete('/configuracion/automatizaciones/{eventKey}', [MessageAutomationController::class, 'disable'])->name('automations.disable');
+    Route::middleware('can:manage-whatsapp')->group(function (): void {
+        Route::post('/configuracion/plantillas', [TemplateController::class, 'store'])->name('templates.store');
+        Route::put('/configuracion/plantillas/{template}', [TemplateController::class, 'update'])->name('templates.update');
+        Route::put('/configuracion/plantillas/{template}/estado', [TemplateController::class, 'status'])->name('templates.status');
+        Route::put('/configuracion/automatizaciones', [MessageAutomationController::class, 'update'])->name('automations.update');
+        Route::delete('/configuracion/automatizaciones/{eventKey}', [MessageAutomationController::class, 'disable'])->name('automations.disable');
+    });
 });

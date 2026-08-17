@@ -37,11 +37,11 @@
 ## WhatsApp
 
 - [ ] Aplicación y número de Meta configurados.
-- [ ] Tokens únicamente en `.env` y campos cifrados.
+- [ ] Token y App Secret guardados únicamente en los campos cifrados de la conexión.
 - [ ] Webhook verificado y firma validada.
 - [ ] Plantillas aprobadas.
 - [ ] Mensaje al teléfono autorizado entregado.
-- [ ] `WHATSAPP_SEND_ENABLED=true` solo al finalizar.
+- [ ] Envíos reales activados desde el asistente solo después de recibir el primer webhook.
 - [ ] Campaña de una persona autorizada verificada.
 
 ## Datos personales

@@ -12,6 +12,8 @@ Plataforma multiempresa de fidelidad por WhatsApp para barberías y negocios de 
 - Canjes y reversiones con motivo, administrador y fecha.
 - Campañas con plantilla aprobada, consentimiento, frecuencia, lotes y horarios.
 - Webhook firmado, eventos idempotentes, reintentos y estados de entrega.
+- Asistente de conexión con validación real de WABA y Phone Number ID, secretos cifrados y activación controlada.
+- Bandeja bidireccional responsive con no leídos, búsqueda, historial conjunto y control de la ventana de respuesta de 24 horas.
 - Comandos determinísticos: `SALDO`, `NIVEL`, `PREMIOS`, `AYUDA` y `SALIR`.
 - Preparación para cPanel, MySQL/MariaDB y Cron cada cinco minutos.
 

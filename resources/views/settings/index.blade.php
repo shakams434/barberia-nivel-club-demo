@@ -97,21 +97,21 @@
     </section>
 
     <section id="whatsapp" class="card scroll-mt-32">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p class="eyebrow">WhatsApp oficial</p><h2 class="mt-1 text-xl font-black">Conexión con Meta</h2><p class="subtitle">Los secretos se cifran y nunca vuelven a mostrarse completos.</p></div><a class="btn btn-secondary" href="{{ route('settings.whatsapp.health') }}" target="_blank" rel="noopener">Ver estado</a></div>
-        <form method="POST" action="{{ route('settings.whatsapp') }}" class="mt-5 grid gap-4 sm:grid-cols-2">
-            @csrf @method('PUT')
-            <div><label class="label" for="provider">Entorno</label><select class="select" id="provider" name="provider"><option value="fake" @selected(($account?->provider ?? 'fake') === 'fake')>Pruebas locales sin envíos externos</option><option value="meta" @selected($account?->provider === 'meta')>Meta WhatsApp Cloud API</option></select></div>
-            <div><label class="label" for="wa_phone">Número E.164</label><input class="input" id="wa_phone" name="phone_e164" value="{{ old('phone_e164', $account?->phone_e164) }}" placeholder="+51999999999"></div>
-            <div><label class="label" for="waba">WABA ID</label><input class="input" id="waba" name="waba_id" value="{{ old('waba_id', $account?->waba_id) }}"></div>
-            <div><label class="label" for="phone_id">Phone Number ID</label><input class="input" id="phone_id" name="phone_number_id" value="{{ old('phone_number_id', $account?->phone_number_id) }}"></div>
-            <div><label class="label" for="token">Access Token</label><input class="input" id="token" name="access_token" type="password" placeholder="{{ $account?->access_token ? 'Configurado · vacío conserva el actual' : 'No configurado' }}" autocomplete="new-password"></div>
-            <div><label class="label" for="app_secret">App Secret</label><input class="input" id="app_secret" name="app_secret" type="password" placeholder="{{ $account?->app_secret ? 'Configurado · vacío conserva el actual' : 'No configurado' }}" autocomplete="new-password"></div>
-            <div><label class="label" for="verify_token">Webhook Verify Token</label><input class="input" id="verify_token" name="webhook_verify_token" type="password" placeholder="{{ $account?->webhook_verify_token ? 'Configurado · vacío conserva el actual' : 'No configurado' }}" autocomplete="new-password"></div>
-            <label class="flex min-h-12 items-center gap-3 rounded-xl border border-rose-300/15 bg-rose-300/5 px-4 text-sm"><input class="checkbox" type="checkbox" name="send_enabled" value="1" @checked($account?->send_enabled)> Habilitar envíos reales con Meta</label>
-            <div class="sm:col-span-2 rounded-xl border border-white/8 bg-black/15 p-3 text-xs leading-5 text-[#8f959f]">Webhook: <code>{{ url('/api/webhooks/whatsapp') }}</code> · Graph API: {{ config('whatsapp.graph_api_version') }}.</div>
-            <div class="sm:col-span-2 flex flex-wrap justify-end gap-2"><button class="btn btn-primary" type="submit">Guardar conexión</button></div>
-        </form>
-        <form method="POST" action="{{ route('settings.whatsapp.test') }}" class="mt-3 flex justify-end" data-confirm="Se intentará enviar un único mensaje al teléfono autorizado configurado en Negocio." data-confirm-title="Probar conexión" data-confirm-button="Enviar prueba">@csrf<button class="btn btn-secondary" type="submit">Enviar mensaje de prueba</button></form>
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <p class="eyebrow">WhatsApp Business</p>
+                <h2 class="mt-1 text-xl font-black">Conexión y conversaciones</h2>
+                <p class="subtitle">Un asistente guiado comprueba los datos de Meta y prepara el buzón para responder a tus clientes.</p>
+                <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                    <span class="badge {{ $account?->connection_status === 'connected' ? 'badge-success' : 'badge-warning' }}">{{ $account?->connection_status === 'connected' ? 'Conectado' : 'Pendiente de conectar' }}</span>
+                    <span class="text-[#8f959f]">Las claves permanecen cifradas y nunca se muestran completas.</span>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                @can('manage-whatsapp')<a class="btn btn-primary" href="{{ route('whatsapp.connection') }}">Configurar WhatsApp</a>@endcan
+                <a class="btn btn-secondary" href="{{ route('whatsapp.conversations.index') }}">Abrir conversaciones</a>
+            </div>
+        </div>
     </section>
 
     @include('settings._templates')

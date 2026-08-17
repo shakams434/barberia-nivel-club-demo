@@ -9,6 +9,7 @@ use App\Models\CampaignRecipient;
 use App\Models\Consent;
 use App\Models\Customer;
 use App\Models\CustomerReward;
+use App\Models\InboundMessage;
 use App\Models\LoyaltyProgram;
 use App\Models\LoyaltyTransaction;
 use App\Models\MessageAutomation;
@@ -19,6 +20,7 @@ use App\Models\Tier;
 use App\Models\User;
 use App\Models\Visit;
 use App\Models\WhatsAppAccount;
+use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppTemplate;
 use App\Services\MessageAutomationService;
@@ -252,9 +254,36 @@ class LocalSampleSeeder extends Seeder
         }
 
         foreach ($customers->take(5) as $index => $customer) {
+            $conversation = WhatsAppConversation::withoutGlobalScope('business')->create([
+                'business_id' => $business->id,
+                'customer_id' => $customer->id,
+                'public_id' => (string) Str::uuid(),
+                'phone_e164' => $customer->phone_e164,
+                'contact_name' => $customer->name,
+                'unread_count' => $index < 2 ? 1 : 0,
+                'last_message_at' => now()->subHours($index + 1),
+                'last_inbound_at' => $index < 2 ? now()->subMinutes(15 + $index * 20) : null,
+                'last_outbound_at' => now()->subHours($index + 1),
+            ]);
+            if ($index < 2) {
+                InboundMessage::withoutGlobalScope('business')->create([
+                    'business_id' => $business->id,
+                    'customer_id' => $customer->id,
+                    'whatsapp_conversation_id' => $conversation->id,
+                    'public_id' => (string) Str::uuid(),
+                    'meta_message_id' => 'fake_inbound_seed_'.$index,
+                    'from_phone_e164' => $customer->phone_e164,
+                    'message_text' => $index === 0 ? 'Hola, ¿tienen espacio hoy por la tarde?' : 'Quisiera reservar corte y barba para mañana.',
+                    'payload' => ['type' => 'text', 'simulation' => true],
+                    'status' => 'needs_reply',
+                    'processed_at' => now()->subMinutes(14 + $index * 20),
+                    'created_at' => now()->subMinutes(15 + $index * 20),
+                ]);
+            }
             WhatsAppMessage::withoutGlobalScope('business')->create([
                 'business_id' => $business->id,
                 'customer_id' => $customer->id,
+                'whatsapp_conversation_id' => $conversation->id,
                 'whatsapp_template_id' => $templates['loyalty_xp_update']->id,
                 'public_id' => (string) Str::uuid(),
                 'direction' => 'outbound',

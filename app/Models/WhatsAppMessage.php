@@ -13,7 +13,7 @@ class WhatsAppMessage extends Model
     protected $table = 'whatsapp_messages';
 
     protected $fillable = [
-        'business_id', 'customer_id', 'whatsapp_template_id', 'campaign_recipient_id',
+        'business_id', 'customer_id', 'whatsapp_conversation_id', 'whatsapp_template_id', 'campaign_recipient_id',
         'public_id', 'direction', 'message_type', 'phone_e164', 'status', 'body_preview',
         'variables', 'meta_message_id', 'idempotency_key', 'attempts', 'error_code',
         'error_message', 'queued_at', 'sent_at', 'delivered_at', 'read_at', 'failed_at',
@@ -39,6 +39,11 @@ class WhatsAppMessage extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function conversation(): BelongsTo
+    {
+        return $this->belongsTo(WhatsAppConversation::class, 'whatsapp_conversation_id');
     }
 
     public function template(): BelongsTo

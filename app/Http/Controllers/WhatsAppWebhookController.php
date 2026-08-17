@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ProcessInboundWhatsAppMessage;
+use App\Models\Customer;
 use App\Models\InboundMessage;
 use App\Models\WebhookEvent;
 use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppMessage;
+use App\Services\WhatsAppConversationService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -35,79 +37,106 @@ class WhatsAppWebhookController extends Controller
             ->header('Content-Type', 'text/plain');
     }
 
-    public function receive(Request $request, TenantContext $tenant): Response
+    public function receive(Request $request, TenantContext $tenant, WhatsAppConversationService $conversations): Response
     {
         $raw = $request->getContent();
-        $phoneNumberId = data_get($request->json()->all(), 'entry.0.changes.0.value.metadata.phone_number_id');
-        $account = WhatsAppAccount::withoutGlobalScope('business')
-            ->where('phone_number_id', $phoneNumberId)
-            ->first();
-        $secret = $account?->app_secret ?: config('whatsapp.app_secret');
+        $payload = $request->json()->all();
+        $values = collect(Arr::wrap($payload['entry'] ?? []))
+            ->flatMap(fn (array $entry) => Arr::wrap($entry['changes'] ?? []))
+            ->pluck('value')
+            ->filter(fn ($value) => is_array($value))
+            ->values();
+        $phoneNumberIds = $values->pluck('metadata.phone_number_id')->filter()->unique()->values();
+        $accounts = WhatsAppAccount::withoutGlobalScope('business')
+            ->whereIn('phone_number_id', $phoneNumberIds)
+            ->get()
+            ->keyBy('phone_number_id');
         $signature = (string) $request->header('X-Hub-Signature-256');
-
-        abort_unless(
-            filled($secret)
-            && str_starts_with($signature, 'sha256=')
-            && hash_equals('sha256='.hash_hmac('sha256', $raw, $secret), $signature),
-            403,
-        );
-
-        abort_unless($account, 202);
-        $tenant->set($account->business_id);
-
-        try {
-            $value = data_get($request->json()->all(), 'entry.0.changes.0.value', []);
-
-            foreach (Arr::wrap($value['messages'] ?? []) as $payload) {
-                $metaId = $payload['id'] ?? null;
-                $from = $payload['from'] ?? null;
-                if (! $metaId || ! $from) {
-                    continue;
-                }
-                $event = $this->recordEvent($account->business_id, 'message:'.$metaId, 'message', $payload);
-                if (! $event->wasRecentlyCreated) {
-                    continue;
-                }
-
-                $text = data_get($payload, 'text.body')
-                    ?? data_get($payload, 'button.text')
-                    ?? data_get($payload, 'interactive.button_reply.title')
-                    ?? '';
-
-                $inbound = InboundMessage::firstOrCreate(
-                    ['meta_message_id' => $metaId],
-                    [
-                        'business_id' => $account->business_id,
-                        'public_id' => (string) Str::uuid(),
-                        'from_phone_e164' => '+'.ltrim($from, '+'),
-                        'message_text' => $text,
-                        'payload' => $payload,
-                        'status' => 'received',
-                    ],
-                );
-
-                if ($inbound->wasRecentlyCreated) {
-                    ProcessInboundWhatsAppMessage::dispatch($inbound->id)->onQueue('webhooks');
-                }
+        $signedAccounts = $accounts->filter(function (WhatsAppAccount $account) use ($raw, $signature): bool {
+            if (! str_starts_with($signature, 'sha256=')) {
+                return false;
             }
+            $secret = $account->app_secret ?: config('whatsapp.app_secret');
 
-            foreach (Arr::wrap($value['statuses'] ?? []) as $status) {
-                $eventKey = implode(':', [
-                    'status',
-                    $status['id'] ?? 'unknown',
-                    $status['status'] ?? 'unknown',
-                    $status['timestamp'] ?? '0',
-                ]);
-                $event = $this->recordEvent($account->business_id, $eventKey, 'status', $status);
-                if ($event->wasRecentlyCreated) {
-                    $this->applyStatus($account->business_id, $status);
-                }
+            return filled($secret) && hash_equals('sha256='.hash_hmac('sha256', $raw, $secret), $signature);
+        });
+        abort_if($signedAccounts->isEmpty(), 403);
+
+        foreach ($values as $value) {
+            $account = $signedAccounts->get(data_get($value, 'metadata.phone_number_id'));
+            if (! $account) {
+                continue;
             }
-        } finally {
-            $tenant->clear();
+            $tenant->set($account->business_id);
+            try {
+                $this->processValue($account, $value, $conversations);
+                $account->update(['last_webhook_at' => now()]);
+            } finally {
+                $tenant->clear();
+            }
         }
 
         return response('EVENT_RECEIVED', 200);
+    }
+
+    private function processValue(WhatsAppAccount $account, array $value, WhatsAppConversationService $conversations): void
+    {
+        foreach (Arr::wrap($value['messages'] ?? []) as $messagePayload) {
+            $metaId = $messagePayload['id'] ?? null;
+            $from = $messagePayload['from'] ?? null;
+            if (! $metaId || ! $from) {
+                continue;
+            }
+            $event = $this->recordEvent($account->business_id, 'message:'.$metaId, 'message', $messagePayload);
+            if (! $event->wasRecentlyCreated) {
+                continue;
+            }
+
+            $phone = '+'.ltrim($from, '+');
+            $customer = Customer::where('phone_hash', Customer::phoneHash($phone))->first();
+            $contactName = data_get($value, 'contacts.0.profile.name');
+            $conversation = $conversations->forPhone($account->business_id, $phone, $customer, $contactName);
+            $text = data_get($messagePayload, 'text.body')
+                ?? data_get($messagePayload, 'button.text')
+                ?? data_get($messagePayload, 'interactive.button_reply.title')
+                ?? '';
+
+            $inbound = InboundMessage::firstOrCreate(
+                ['meta_message_id' => $metaId],
+                [
+                    'business_id' => $account->business_id,
+                    'customer_id' => $customer?->id,
+                    'whatsapp_conversation_id' => $conversation->id,
+                    'public_id' => (string) Str::uuid(),
+                    'from_phone_e164' => $phone,
+                    'message_text' => $text,
+                    'payload' => [
+                        'type' => $messagePayload['type'] ?? 'unknown',
+                        'timestamp' => $messagePayload['timestamp'] ?? null,
+                        'context_message_id' => data_get($messagePayload, 'context.id'),
+                    ],
+                    'status' => 'received',
+                ],
+            );
+
+            if ($inbound->wasRecentlyCreated) {
+                $conversation->update([
+                    'last_message_at' => now(),
+                    'last_inbound_at' => now(),
+                    'unread_count' => $conversation->unread_count + 1,
+                    'status' => 'open',
+                ]);
+                ProcessInboundWhatsAppMessage::dispatch($inbound->id)->onQueue('webhooks');
+            }
+        }
+
+        foreach (Arr::wrap($value['statuses'] ?? []) as $status) {
+            $eventKey = implode(':', ['status', $status['id'] ?? 'unknown', $status['status'] ?? 'unknown', $status['timestamp'] ?? '0']);
+            $event = $this->recordEvent($account->business_id, $eventKey, 'status', $status);
+            if ($event->wasRecentlyCreated) {
+                $this->applyStatus($account->business_id, $status);
+            }
+        }
     }
 
     private function recordEvent(int $businessId, string $eventKey, string $type, array $payload): WebhookEvent

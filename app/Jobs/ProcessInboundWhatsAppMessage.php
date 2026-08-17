@@ -14,6 +14,11 @@ class ProcessInboundWhatsAppMessage implements ShouldQueue
 
     public int $tries = 3;
 
+    public function backoff(): array
+    {
+        return [30, 120, 600];
+    }
+
     public function __construct(public readonly int $inboundMessageId) {}
 
     public function handle(InboundMessageProcessor $processor, TenantContext $tenant): void

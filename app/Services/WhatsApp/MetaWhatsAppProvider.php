@@ -30,15 +30,15 @@ class MetaWhatsAppProvider implements WhatsAppProviderInterface
             $payload['template'] = [
                 'name' => $message->template->technical_name,
                 'language' => ['code' => $message->template->language],
-                'components' => [[
-                    'type' => 'body',
-                    'parameters' => collect($message->variables ?? [])
-                        ->reject(fn ($value, $key) => str_starts_with((string) $key, '_'))
-                        ->values()
-                        ->map(fn ($value) => ['type' => 'text', 'text' => (string) $value])
-                        ->all(),
-                ]],
             ];
+            $parameters = collect($message->variables ?? [])
+                ->reject(fn ($value, $key) => str_starts_with((string) $key, '_'))
+                ->values()
+                ->map(fn ($value) => ['type' => 'text', 'text' => (string) $value])
+                ->all();
+            if ($parameters !== []) {
+                $payload['template']['components'] = [['type' => 'body', 'parameters' => $parameters]];
+            }
         } else {
             $payload['type'] = 'text';
             $payload['text'] = ['preview_url' => false, 'body' => $message->body_preview];
@@ -86,7 +86,7 @@ class MetaWhatsAppProvider implements WhatsAppProviderInterface
 
     private function assertConfigured(): void
     {
-        if (! $this->account->send_enabled || ! config('whatsapp.send_enabled')) {
+        if (! $this->account->send_enabled) {
             throw new \RuntimeException('El envío real de WhatsApp está deshabilitado.');
         }
 

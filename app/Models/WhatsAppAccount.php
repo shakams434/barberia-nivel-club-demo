@@ -14,7 +14,8 @@ class WhatsAppAccount extends Model
     protected $fillable = [
         'business_id', 'provider', 'waba_id', 'phone_number_id', 'phone_e164',
         'access_token', 'app_secret', 'webhook_verify_token', 'send_enabled',
-        'configuration_checked_at',
+        'verified_name', 'quality_rating', 'connection_status', 'last_error',
+        'configuration_checked_at', 'webhook_subscribed_at', 'last_webhook_at',
     ];
 
     protected $hidden = ['access_token', 'app_secret', 'webhook_verify_token'];
@@ -27,6 +28,8 @@ class WhatsAppAccount extends Model
             'webhook_verify_token' => 'encrypted',
             'send_enabled' => 'boolean',
             'configuration_checked_at' => 'datetime',
+            'webhook_subscribed_at' => 'datetime',
+            'last_webhook_at' => 'datetime',
         ];
     }
 }

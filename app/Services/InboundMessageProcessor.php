@@ -90,10 +90,13 @@ class InboundMessageProcessor
                 ? "Comandos: SALDO, NIVEL, PREMIOS y SALIR. Si necesitas ayuda, visita {$customer->business->name}."
                 : 'Comandos: QUIERO UNIRME, SALDO, NIVEL, PREMIOS y SALIR. También puedes visitar el negocio.';
         } else {
-            $response = 'No reconocí ese comando. Usa QUIERO UNIRME, SALDO, NIVEL, PREMIOS, SALIR o AYUDA.';
+            $response = null;
         }
 
         $customer ??= Customer::where('phone_hash', Customer::phoneHash($inbound->from_phone_e164))->first();
+        if ($customer && $inbound->conversation && ! $inbound->conversation->customer_id) {
+            $inbound->conversation->update(['customer_id' => $customer->id, 'contact_name' => $customer->name]);
+        }
         if ($customer && ($responseTemplate || filled($response))) {
             $message = $this->messages->queue(
                 $customer,
@@ -104,6 +107,7 @@ class InboundMessageProcessor
             );
             if (! $responseTemplate || $customer->business->whatsappAccount?->provider === 'fake' || $responseTemplate->status === 'approved') {
                 $this->messages->attemptNow($message->id, true);
+                $inbound->update(['replied_at' => now()]);
             } else {
                 $message->update([
                     'error_code' => 'TEMPLATE_NOT_APPROVED',
@@ -115,7 +119,7 @@ class InboundMessageProcessor
         $inbound->update([
             'customer_id' => $customer?->id,
             'command' => $command,
-            'status' => 'processed',
+            'status' => filled($response) || $responseTemplate ? 'processed' : 'needs_reply',
             'processed_at' => now(),
         ]);
     }

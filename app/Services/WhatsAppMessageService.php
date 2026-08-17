@@ -6,6 +6,7 @@ use App\Jobs\SendWhatsAppMessage;
 use App\Models\Consent;
 use App\Models\Customer;
 use App\Models\Visit;
+use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsApp\WhatsAppProviderManager;
@@ -29,11 +30,13 @@ class WhatsAppMessageService
         ?string $text = null,
         ?int $campaignRecipientId = null,
     ): WhatsAppMessage {
-        return WhatsAppMessage::firstOrCreate(
+        $conversation = app(WhatsAppConversationService::class)->forPhone($customer->business_id, $customer->phone_e164, $customer);
+        $message = WhatsAppMessage::firstOrCreate(
             ['idempotency_key' => $idempotencyKey],
             [
                 'business_id' => $customer->business_id,
                 'customer_id' => $customer->id,
+                'whatsapp_conversation_id' => $conversation->id,
                 'whatsapp_template_id' => $template?->id,
                 'campaign_recipient_id' => $campaignRecipientId,
                 'public_id' => (string) Str::uuid(),
@@ -46,11 +49,44 @@ class WhatsAppMessageService
                 'queued_at' => now(),
             ],
         );
+        if ($message->wasRecentlyCreated) {
+            $conversation->update(['last_message_at' => now(), 'last_outbound_at' => now()]);
+        }
+
+        return $message;
+    }
+
+    public function queueConversationText(WhatsAppConversation $conversation, string $text, string $idempotencyKey): WhatsAppMessage
+    {
+        $message = WhatsAppMessage::firstOrCreate(
+            ['idempotency_key' => $idempotencyKey],
+            [
+                'business_id' => $conversation->business_id,
+                'customer_id' => $conversation->customer_id,
+                'whatsapp_conversation_id' => $conversation->id,
+                'public_id' => (string) Str::uuid(),
+                'direction' => 'outbound',
+                'message_type' => 'text',
+                'phone_e164' => $conversation->phone_e164,
+                'status' => 'queued',
+                'body_preview' => $text,
+                'variables' => [],
+                'queued_at' => now(),
+            ],
+        );
+        if ($message->wasRecentlyCreated) {
+            $conversation->update(['last_message_at' => now(), 'last_outbound_at' => now(), 'status' => 'open']);
+        }
+
+        return $message;
     }
 
     public function attemptNow(int $messageId, bool $requeueOnFailure = false): WhatsAppMessage
     {
         $message = WhatsAppMessage::with(['template', 'customer'])->findOrFail($messageId);
+        if (in_array($message->status, ['sent', 'delivered', 'read'], true)) {
+            return $message;
+        }
         if ($message->attempts >= config('whatsapp.max_attempts')) {
             $message->update([
                 'status' => 'failed',

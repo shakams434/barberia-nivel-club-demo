@@ -6,8 +6,9 @@
     $statusLabels = ['queued' => 'En cola', 'sent' => 'Enviado', 'delivered' => 'Entregado', 'read' => 'Leído', 'failed' => 'Fallido', 'cancelled' => 'Cancelado'];
 @endphp
 <div class="page-heading">
-    <div><p class="eyebrow">Centro de mensajes</p><h1 class="title">Mensajes</h1><p class="subtitle">Revisa envíos, entregas, lecturas y acciones que requieren atención.</p></div>
+    <div><p class="eyebrow">WhatsApp · auditoría</p><h1 class="title">Historial de envíos</h1><p class="subtitle">Revisa envíos, entregas, lecturas y acciones que requieren atención.</p></div>
 </div>
+<nav class="tabs mb-5" aria-label="Módulos de WhatsApp"><a href="{{ route('whatsapp.conversations.index') }}">Conversaciones</a><a class="border-[#d4af37]/30 bg-[#d4af37]/10 text-[#e8c85a]" href="{{ route('messages.index') }}">Historial de envíos</a>@can('manage-whatsapp')<a href="{{ route('whatsapp.connection') }}">Conexión</a>@endcan</nav>
 
 <form method="GET" class="card mb-5 grid gap-3 sm:grid-cols-[200px_200px_auto]" data-no-lock="true">
     <div><label class="label" for="status">Estado</label><select class="select" id="status" name="status"><option value="">Todos</option>@foreach(['queued','sent','delivered','read','failed','cancelled'] as $status)<option value="{{ $status }}" @selected(request('status')===$status)>{{ $statusLabels[$status] }}</option>@endforeach</select></div>

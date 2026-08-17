@@ -60,10 +60,6 @@ services:
         value: local
       - key: WHATSAPP_PROVIDER
         value: fake
-      - key: WHATSAPP_SEND_ENABLED
-        value: "false"
-      - key: META_WHATSAPP_SEND_ENABLED
-        value: "false"
       - key: RENDER_DEMO_SEED
         value: "true"
       - key: DEMO_ADMIN_NAME

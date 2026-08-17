@@ -38,12 +38,12 @@ No reintentes campañas indiscriminadamente: verifica consentimiento y frecuenci
 
 ## Token vencido o revocado
 
-1. Pon `WHATSAPP_SEND_ENABLED=false`.
+1. En **WhatsApp → Conexión**, pulsa **Pausar envíos reales**.
 2. Genera/rota el token en Meta con el proceso autorizado.
-3. Actualízalo desde Configuración o `.env`.
-4. Ejecuta `php artisan config:cache`.
-5. Prueba health y un destinatario autorizado.
-6. Habilita envíos y procesa la cola pendiente.
+3. Actualízalo desde **WhatsApp → Conexión**; no lo copies en `.env`.
+4. Pulsa **Volver a comprobar credenciales**.
+5. Envía un mensaje al número y confirma que llegue a Conversaciones.
+6. Activa WhatsApp y procesa la cola pendiente.
 7. Revoca el token anterior.
 
 ## Plantilla rechazada

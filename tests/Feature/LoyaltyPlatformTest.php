@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Models\Visit;
 use App\Models\WebhookEvent;
 use App\Models\WhatsAppAccount;
+use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppTemplate;
 use App\Services\CampaignDispatcher;
@@ -35,6 +36,7 @@ use App\Services\WhatsAppTemplateService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
@@ -868,6 +870,11 @@ class LoyaltyPlatformTest extends TestCase
         ], $raw)->assertOk();
         $this->assertDatabaseCount('inbound_messages', 1);
         $this->assertDatabaseCount('webhook_events', 1);
+        $this->assertDatabaseHas('whatsapp_conversations', [
+            'business_id' => $this->business->id,
+            'phone_e164' => '+51987654321',
+            'unread_count' => 1,
+        ]);
         Queue::assertPushed(ProcessInboundWhatsAppMessage::class, 1);
 
         $this->call('POST', '/api/webhooks/whatsapp', [], [], [], [
@@ -967,7 +974,7 @@ class LoyaltyPlatformTest extends TestCase
         $this->assertSame('*/5 * * * *', $workerEvent->expression);
         $this->assertStringContainsString('--stop-when-empty', $workerEvent->command);
         $this->assertStringContainsString('--max-time=240', $workerEvent->command);
-        $this->assertStringContainsString('--queue=campaigns,messages,default', $workerEvent->command);
+        $this->assertStringContainsString('--queue=webhooks,campaigns,messages,default', $workerEvent->command);
     }
 
     public function test_inbound_commands_saldo_premios_and_ayuda_are_deterministic(): void
@@ -997,6 +1004,168 @@ class LoyaltyPlatformTest extends TestCase
         $this->assertStringContainsString('400 XP', $previews);
         $this->assertStringContainsString('Upgrade Plata', $previews);
         $this->assertStringContainsString('Comandos', $previews);
+    }
+
+    public function test_admin_can_validate_and_store_meta_connection_without_exposing_secrets(): void
+    {
+        Http::fake([
+            'graph.facebook.com/*' => Http::response(['data' => [[
+                'id' => '9988776655',
+                'display_phone_number' => '+51 999 888 777',
+                'verified_name' => 'Barbería Prueba',
+                'quality_rating' => 'GREEN',
+                'platform_type' => 'CLOUD_API',
+            ]]]),
+        ]);
+        $accessToken = str_repeat('A', 40);
+        $appSecret = str_repeat('s', 32);
+
+        $this->actingAs($this->admin)->put(route('whatsapp.connection.store'), [
+            'waba_id' => '1122334455',
+            'phone_number_id' => '9988776655',
+            'access_token' => $accessToken,
+            'app_secret' => $appSecret,
+            'send_enabled' => '1',
+        ])->assertRedirect(route('whatsapp.connection'));
+
+        $account = WhatsAppAccount::firstOrFail();
+        $this->assertSame('connected', $account->connection_status);
+        $this->assertSame('+51999888777', $account->phone_e164);
+        $this->assertSame('Barbería Prueba', $account->verified_name);
+        $this->assertFalse($account->send_enabled);
+        $this->assertNotSame($accessToken, DB::table('whatsapp_accounts')->value('access_token'));
+        $this->assertNotSame($appSecret, DB::table('whatsapp_accounts')->value('app_secret'));
+        $this->actingAs($this->admin)->get(route('whatsapp.connection'))
+            ->assertOk()
+            ->assertDontSee($accessToken)
+            ->assertDontSee($appSecret);
+
+        $this->actingAs($this->admin)->from(route('whatsapp.connection'))
+            ->post(route('whatsapp.connection.toggle'), ['enabled' => '1'])
+            ->assertSessionHasErrors('activation');
+        $account->update(['webhook_subscribed_at' => now(), 'last_webhook_at' => now()]);
+        $this->actingAs($this->admin)->post(route('whatsapp.connection.toggle'), ['enabled' => '1']);
+        $this->assertTrue($account->fresh()->send_enabled);
+    }
+
+    public function test_connection_rejects_a_phone_number_that_meta_does_not_assign_to_the_waba(): void
+    {
+        Http::fake(['graph.facebook.com/*' => Http::response(['data' => [['id' => '111']]])]);
+
+        $this->actingAs($this->admin)->from(route('whatsapp.connection'))->put(route('whatsapp.connection.store'), [
+            'waba_id' => '1122334455',
+            'phone_number_id' => '9988776655',
+            'access_token' => str_repeat('A', 40),
+            'app_secret' => str_repeat('s', 32),
+        ])->assertRedirect(route('whatsapp.connection'))->assertSessionHasErrors('connection');
+
+        $this->assertSame('fake', WhatsAppAccount::firstOrFail()->provider);
+    }
+
+    public function test_agent_can_use_inbox_but_cannot_change_meta_credentials(): void
+    {
+        $agent = User::factory()->create([
+            'business_id' => $this->business->id,
+            'role' => 'agent',
+        ]);
+
+        $this->actingAs($agent)->get(route('whatsapp.conversations.index'))->assertOk();
+        $this->actingAs($agent)->get(route('messages.index'))->assertOk();
+        $this->actingAs($agent)->get(route('whatsapp.connection'))->assertForbidden();
+    }
+
+    public function test_admin_can_reply_from_inbox_and_meta_blocks_free_text_after_24_hours(): void
+    {
+        $customer = $this->customer();
+        $conversation = WhatsAppConversation::create([
+            'business_id' => $this->business->id,
+            'customer_id' => $customer->id,
+            'public_id' => (string) Str::uuid(),
+            'phone_e164' => $customer->phone_e164,
+            'contact_name' => $customer->name,
+            'last_message_at' => now(),
+            'last_inbound_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin)->post(route('whatsapp.conversations.reply', $conversation), [
+            'message' => 'Sí, tenemos espacio a las 4:00 p. m.',
+        ])->assertRedirect(route('whatsapp.conversations.show', $conversation));
+        $this->assertDatabaseHas('whatsapp_messages', [
+            'whatsapp_conversation_id' => $conversation->id,
+            'body_preview' => 'Sí, tenemos espacio a las 4:00 p. m.',
+            'status' => 'sent',
+        ]);
+
+        WhatsAppAccount::firstOrFail()->update(['provider' => 'meta']);
+        $conversation->update(['last_inbound_at' => now()->subHours(25)]);
+        $this->actingAs($this->admin)->from(route('whatsapp.conversations.show', $conversation))
+            ->post(route('whatsapp.conversations.reply', $conversation), ['message' => '¿Sigues ahí?'])
+            ->assertRedirect(route('whatsapp.conversations.show', $conversation))
+            ->assertSessionHasErrors('message');
+        $this->assertDatabaseMissing('whatsapp_messages', ['body_preview' => '¿Sigues ahí?']);
+    }
+
+    public function test_unknown_inbound_text_waits_for_a_human_instead_of_double_replying(): void
+    {
+        $customer = $this->customer();
+        $conversation = WhatsAppConversation::create([
+            'business_id' => $this->business->id,
+            'customer_id' => $customer->id,
+            'public_id' => (string) Str::uuid(),
+            'phone_e164' => $customer->phone_e164,
+            'last_message_at' => now(),
+            'last_inbound_at' => now(),
+            'unread_count' => 1,
+        ]);
+        $inbound = InboundMessage::create([
+            'business_id' => $this->business->id,
+            'customer_id' => $customer->id,
+            'whatsapp_conversation_id' => $conversation->id,
+            'public_id' => (string) Str::uuid(),
+            'meta_message_id' => 'human-question-1',
+            'from_phone_e164' => $customer->phone_e164,
+            'message_text' => 'Hola, ¿tienen cita hoy a las cuatro?',
+        ]);
+
+        app(InboundMessageProcessor::class)->process($inbound);
+
+        $this->assertSame('needs_reply', $inbound->fresh()->status);
+        $this->assertDatabaseMissing('whatsapp_messages', ['idempotency_key' => 'inbound-response:'.$inbound->id]);
+    }
+
+    public function test_webhook_processes_every_entry_and_change_in_the_same_request(): void
+    {
+        Queue::fake();
+        app(TenantContext::class)->clear();
+        $change = fn (string $id, string $phone, string $name) => [
+            'value' => [
+                'metadata' => ['phone_number_id' => 'phone_test'],
+                'contacts' => [['profile' => ['name' => $name]]],
+                'messages' => [[
+                    'id' => $id,
+                    'from' => $phone,
+                    'timestamp' => (string) now()->timestamp,
+                    'type' => 'text',
+                    'text' => ['body' => 'Necesito una cita'],
+                ]],
+            ],
+        ];
+        $payload = ['entry' => [
+            ['changes' => [$change('wamid.multi.1', '51911111111', 'Ana')]],
+            ['changes' => [$change('wamid.multi.2', '51922222222', 'Luis')]],
+        ]];
+        $raw = json_encode($payload);
+
+        $this->call('POST', '/api/webhooks/whatsapp', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $raw, 'test-secret'),
+        ], $raw)->assertOk();
+
+        $this->assertDatabaseCount('inbound_messages', 2);
+        $this->assertDatabaseCount('whatsapp_conversations', 2);
+        $this->assertDatabaseHas('whatsapp_conversations', ['contact_name' => 'Ana']);
+        $this->assertDatabaseHas('whatsapp_conversations', ['contact_name' => 'Luis']);
+        Queue::assertPushed(ProcessInboundWhatsAppMessage::class, 2);
     }
 
     private function customer(array $overrides = []): Customer
