@@ -190,7 +190,8 @@ class WhatsAppMessageService
             ? "¡Subiste al Nivel {$customer->level} · {$customer->tier?->name}! {$reward?->name}"
             : "Ganaste {$visit->xp_awarded} XP. Ahora estás en Nivel {$customer->level}.";
         $message = $this->queue($customer, $template, $variables, 'visit-notification:'.$visit->id, $fallback);
-        if ($customer->business->whatsappAccount?->provider === 'fake' || $template->status === 'approved') {
+        $provider = $customer->business->whatsappAccount?->provider;
+        if (in_array($provider, ['fake', 'baileys'], true) || $template->status === 'approved') {
             $this->attemptNow($message->id, true);
         } else {
             $message->update([

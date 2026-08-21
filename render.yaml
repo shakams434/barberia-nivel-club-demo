@@ -68,6 +68,12 @@ services:
         sync: false
       - key: META_WEBHOOK_VERIFY_TOKEN
         sync: false
+      - key: BAILEYS_BASE_URL
+        sync: false
+      - key: BAILEYS_API_TOKEN
+        sync: false
+      - key: BAILEYS_WEBHOOK_SECRET
+        sync: false
       - key: RENDER_DEMO_SEED
         value: "true"
       - key: DEMO_ADMIN_NAME

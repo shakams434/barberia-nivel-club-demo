@@ -144,6 +144,42 @@ class WhatsAppConnectionController extends Controller
         return redirect()->route('whatsapp.connection')->with('success', 'Meta reconoció la cuenta y el número. Ahora configura y comprueba el webhook.');
     }
 
+    public function connectBaileys(Request $request, AuditService $audit): RedirectResponse
+    {
+        $account = WhatsAppAccount::first();
+        $data = $request->validate([
+            'baileys_base_url' => ['required', 'url', 'max:255'],
+            'access_token' => ['required', 'string', 'min:16'],
+            'phone_e164' => ['required', 'string', 'max:24', 'regex:/^\+?[0-9]{8,15}$/'],
+        ]);
+
+        $account ??= new WhatsAppAccount(['business_id' => $request->user()->business_id]);
+        $account->fill([
+            'provider' => 'baileys',
+            'connection_mode' => 'baileys',
+            'baileys_base_url' => rtrim($data['baileys_base_url'], '/'),
+            'phone_e164' => $data['phone_e164'],
+            'verified_name' => 'Bot WhatsApp Web',
+            'quality_rating' => null,
+            'connection_status' => 'connected',
+            'last_error' => null,
+            'send_enabled' => true,
+            'configuration_checked_at' => now(),
+            'webhook_verify_token' => null,
+            'webhook_subscribed_at' => now(),
+            'last_webhook_at' => null,
+        ]);
+        $account->access_token = $data['access_token'];
+        $account->save();
+
+        $audit->record('whatsapp.connected_baileys', $account, after: [
+            'phone_e164' => $account->phone_e164,
+            'base_url' => $account->baileys_base_url,
+        ], request: $request);
+
+        return redirect()->route('whatsapp.connection')->with('success', 'Bot conectado. La web enviará y responderá mensajes a través de tu número vinculado.');
+    }
+
     public function check(Request $request, MetaWhatsAppConnectionService $meta): RedirectResponse
     {
         $account = WhatsAppAccount::firstOrFail();
@@ -179,7 +215,8 @@ class WhatsAppConnectionController extends Controller
     {
         $account = WhatsAppAccount::firstOrFail();
         $enable = $request->boolean('enabled');
-        if ($enable && ($account->connection_status !== 'connected' || ! $account->webhook_subscribed_at || ! $account->last_webhook_at)) {
+        if ($enable && $account->provider !== 'baileys'
+            && ($account->connection_status !== 'connected' || ! $account->webhook_subscribed_at || ! $account->last_webhook_at)) {
             return back()->withErrors(['activation' => 'Antes de activar, comprueba las credenciales, suscribe el webhook y envía un mensaje de prueba al número conectado.']);
         }
 

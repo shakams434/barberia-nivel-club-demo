@@ -60,6 +60,9 @@ class MessageAutomationService
             throw new \InvalidArgumentException('La acción automática no existe.');
         }
 
+        $baileys = $this->usesBaileys($business);
+        $ready = fn (WhatsAppTemplate $template): bool => $baileys || $template->status === 'approved';
+
         $automation = MessageAutomation::withoutGlobalScope('business')
             ->where('business_id', $business->id)
             ->where('event_key', $eventKey)
@@ -67,7 +70,7 @@ class MessageAutomationService
             ->first();
 
         if ($automation) {
-            return $automation->active && $automation->template?->status === 'approved'
+            return $automation->active && $automation->template && $ready($automation->template)
                 ? $automation->template
                 : null;
         }
@@ -79,15 +82,17 @@ class MessageAutomationService
         $template = WhatsAppTemplate::withoutGlobalScope('business')
             ->where('business_id', $business->id)
             ->where('technical_name', $definition['default_template'])
-            ->where('status', 'approved')
+            ->when(! $baileys, fn ($query) => $query->where('status', 'approved'))
             ->first();
-        if ($template) {
-            return $template;
-        }
 
-        $template = $this->setup->ensureTemplate($business, $definition['default_template']);
+        $template ??= $this->setup->ensureTemplate($business, $definition['default_template']);
 
-        return $template->status === 'approved' ? $template : null;
+        return $template && $ready($template) ? $template : null;
+    }
+
+    private function usesBaileys(Business $business): bool
+    {
+        return $business->whatsappAccount?->provider === 'baileys';
     }
 
     public function isConfigured(Business $business, string $eventKey): bool
@@ -101,7 +106,8 @@ class MessageAutomationService
     public function validateTemplate(string $eventKey, WhatsAppTemplate $template): void
     {
         $definition = self::DEFINITIONS[$eventKey] ?? null;
-        if (! $definition || $template->category !== 'utility' || $template->status !== 'approved') {
+        $baileys = $template->business?->whatsappAccount?->provider === 'baileys';
+        if (! $definition || (! $baileys && ($template->category !== 'utility' || $template->status !== 'approved'))) {
             throw new \DomainException('Selecciona una plantilla de servicio compatible con esta acción.');
         }
 

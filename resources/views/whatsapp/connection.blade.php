@@ -2,8 +2,9 @@
 @section('title', 'Conectar WhatsApp')
 @section('content')
 @php
-    $connected = $account?->provider === 'meta' && $account?->connection_status === 'connected';
+    $connected = in_array($account?->provider, ['meta', 'baileys'], true) && $account?->connection_status === 'connected';
     $webhookReady = (bool) $account?->webhook_subscribed_at;
+    $usingBaileys = $account?->provider === 'baileys';
 @endphp
 <div class="page-heading">
     <div><p class="eyebrow">WhatsApp Business</p><h1 class="title">Conectar con Meta</h1><p class="subtitle">Un asistente seguro para activar WhatsApp Cloud API sin adivinar qué dato va en cada campo.</p></div>
@@ -43,6 +44,18 @@
                 <form method="POST" action="{{ route('whatsapp.connection.embedded') }}" class="hidden" data-meta-connect-form>@csrf<input type="hidden" name="authorization_code" data-meta-code><input type="hidden" name="waba_id" data-meta-waba><input type="hidden" name="phone_number_id" data-meta-phone></form>
             @endif
 
+            <div class="mt-4 rounded-2xl border border-[#d4af37]/20 bg-[#d4af37]/5 p-5">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h3 class="font-black">Sin Cloud API: usa tu propio bot (WhatsApp Web)</h3><p class="mt-1 text-xs leading-5 text-[#9da2ab]">Conecta el bot gratuito que corre en tu PC (Baileys). La web enviará y recibirá mensajes a través de tu número vinculado, sin pagar la API de Meta.</p></div></div>
+                @if($usingBaileys)<div class="mt-3 rounded-xl border border-emerald-300/20 bg-emerald-300/7 p-3 text-sm text-emerald-100"><strong class="block">Bot conectado</strong><span class="mt-1 block text-xs text-emerald-100/70">{{ $account->phone_e164.' · '.($account->baileys_base_url ?: 'URL pendiente') }}</span></div>@endif
+                <form method="POST" action="{{ route('whatsapp.connection.bot') }}" class="mt-4 grid gap-4 sm:grid-cols-2">
+                    @csrf
+                    <div class="sm:col-span-2"><label class="label" for="baileys_base_url">URL de tu bot (túnel)</label><input class="input" id="baileys_base_url" name="baileys_base_url" value="{{ old('baileys_base_url', $account?->provider === 'baileys' ? $account?->baileys_base_url : '') }}" placeholder="https://XXXXXXXX.trycloudflare.com" required><p class="mt-1.5 text-[11px] text-[#777d87]">La URL pública del bot. Cambia en cada reinicio del túnel; actualízala aquí.</p></div>
+                    <div><label class="label" for="access_token">Token del bot</label><input class="input" id="access_token" name="access_token" type="password" autocomplete="new-password" placeholder="API_TOKEN del archivo .env del bot" required><p class="mt-1.5 text-[11px] text-[#777d87]">El mismo valor de API_TOKEN que usa tu bot.</p></div>
+                    <div><label class="label" for="phone_e164">Número del bot</label><input class="input" id="phone_e164" name="phone_e164" value="{{ old('phone_e164', $account?->provider === 'baileys' ? $account?->phone_e164 : '') }}" inputmode="numeric" placeholder="51912345678" required><p class="mt-1.5 text-[11px] text-[#777d87]">El número vinculado en el bot, con código de país y sin +.</p></div>
+                    <div class="sm:col-span-2 flex justify-end"><button class="btn btn-primary" type="submit" data-busy-text="Guardando…">Conectar bot</button></div>
+                </form>
+            </div>
+
             <details class="mt-4 rounded-xl border border-white/10 p-4" @if(!$embeddedReady || old('waba_id')) open @endif>
                 <summary class="cursor-pointer text-sm font-black">Configuración manual avanzada</summary>
                 <p class="mt-2 text-xs leading-5 text-[#858b95]">Úsala solo si administras tu propia aplicación de Meta y ya tienes sus credenciales técnicas.</p>
@@ -62,7 +75,12 @@
     <div class="space-y-5">
         <section class="card">
             <div class="flex gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#d4af37] font-black text-black">3</span><div><h2 class="font-black">Activa la recepción</h2><p class="mt-1 text-sm leading-6 text-[#9da2ab]">La conexión automática configura esta parte por ti.</p></div></div>
-            @if($account?->connection_mode === 'embedded')
+            @if($usingBaileys)
+                <div class="mt-4 space-y-3">
+                    <div><label class="label">URL de devolución del bot</label><div class="flex gap-2"><input class="input min-w-0" readonly value="{{ url('/api/webhooks/whatsapp-bot') }}" data-copy-source="callback"><button class="btn btn-secondary shrink-0 px-3" type="button" data-copy-target="callback">Copiar</button></div></div>
+                    <div class="rounded-xl border border-dashed border-white/12 p-4 text-xs leading-5 text-[#858b95]">En el bot define <strong>WEBHOOK_URL</strong> con esta URL y <strong>WEBHOOK_TOKEN</strong> con el mismo <strong>API_TOKEN</strong> del bot (o con <strong>BAILEYS_WEBHOOK_SECRET</strong> de Render, si lo definiste). Cada mensaje que reciba el bot llegará a esta bandeja.</div>
+                </div>
+            @elseif($account?->connection_mode === 'embedded')
                 <div class="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-300/7 p-4 text-sm text-emerald-100"><strong class="block">Webhook administrado por la plataforma</strong><span class="mt-1 block text-xs text-emerald-100/70">Meta enviará los mensajes del número conectado directamente a esta bandeja.</span></div>
             @else
                 <div class="mt-4 space-y-3">

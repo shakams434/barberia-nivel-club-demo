@@ -13,7 +13,7 @@ class WhatsAppAccount extends Model
 
     protected $fillable = [
         'business_id', 'provider', 'connection_mode', 'waba_id', 'phone_number_id', 'phone_e164',
-        'access_token', 'app_secret', 'webhook_verify_token', 'send_enabled',
+        'access_token', 'app_secret', 'webhook_verify_token', 'baileys_base_url', 'send_enabled',
         'verified_name', 'quality_rating', 'connection_status', 'last_error',
         'configuration_checked_at', 'webhook_subscribed_at', 'last_webhook_at',
     ];

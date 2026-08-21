@@ -16,6 +16,10 @@ class WhatsAppProviderManager
             return new MetaWhatsAppProvider($account);
         }
 
+        if ($provider === 'baileys') {
+            return new BaileysWhatsAppProvider($account);
+        }
+
         return app(FakeWhatsAppProvider::class);
     }
 }

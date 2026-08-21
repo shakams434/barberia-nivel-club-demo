@@ -105,7 +105,8 @@ class InboundMessageProcessor
                 'inbound-response:'.$inbound->id,
                 $response,
             );
-            if (! $responseTemplate || $customer->business->whatsappAccount?->provider === 'fake' || $responseTemplate->status === 'approved') {
+            $provider = $customer->business->whatsappAccount?->provider;
+            if (! $responseTemplate || in_array($provider, ['fake', 'baileys'], true) || $responseTemplate->status === 'approved') {
                 $this->messages->attemptNow($message->id, true);
                 $inbound->update(['replied_at' => now()]);
             } else {

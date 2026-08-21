@@ -79,55 +79,53 @@ class WhatsAppWebhookController extends Controller
         return response('EVENT_RECEIVED', 200);
     }
 
+    public function receiveBot(Request $request, TenantContext $tenant, WhatsAppConversationService $conversations): Response
+    {
+        $secret = config('whatsapp.baileys_webhook_secret');
+        $account = WhatsAppAccount::withoutGlobalScope('business')->where('provider', 'baileys')->first();
+        $header = (string) $request->header('Authorization');
+        $token = str_starts_with($header, 'Bearer ')
+            ? substr($header, 7)
+            : (string) $request->header('X-Webhook-Token');
+
+        $valid = (filled($secret) && hash_equals($secret, $token))
+            || ($account && filled($account->access_token) && hash_equals((string) $account->access_token, $token));
+
+        if (! $valid) {
+            return response('Unauthorized', 401);
+        }
+
+        if (! $account) {
+            return response('No hay una cuenta de bot conectada.', 400);
+        }
+
+        $payload = $request->json()->all();
+
+        $tenant->set($account->business_id);
+        try {
+            foreach (Arr::wrap($payload['messages'] ?? []) as $messagePayload) {
+                $this->handleInboundMessage($account, $messagePayload, $conversations);
+            }
+            foreach (Arr::wrap($payload['statuses'] ?? []) as $status) {
+                $eventKey = implode(':', ['status', $status['id'] ?? 'unknown', $status['status'] ?? 'unknown', $status['timestamp'] ?? '0']);
+                $event = $this->recordEvent($account->business_id, $eventKey, 'status', $status);
+                if ($event->wasRecentlyCreated) {
+                    $this->applyStatus($account->business_id, $status);
+                }
+            }
+            $account->update(['last_webhook_at' => now()]);
+        } finally {
+            $tenant->clear();
+        }
+
+        return response('EVENT_RECEIVED', 200);
+    }
+
     private function processValue(WhatsAppAccount $account, array $value, WhatsAppConversationService $conversations): void
     {
         foreach (Arr::wrap($value['messages'] ?? []) as $messagePayload) {
-            $metaId = $messagePayload['id'] ?? null;
-            $from = $messagePayload['from'] ?? null;
-            if (! $metaId || ! $from) {
-                continue;
-            }
-            $event = $this->recordEvent($account->business_id, 'message:'.$metaId, 'message', $messagePayload);
-            if (! $event->wasRecentlyCreated) {
-                continue;
-            }
-
-            $phone = '+'.ltrim($from, '+');
-            $customer = Customer::where('phone_hash', Customer::phoneHash($phone))->first();
-            $contactName = data_get($value, 'contacts.0.profile.name');
-            $conversation = $conversations->forPhone($account->business_id, $phone, $customer, $contactName);
-            $text = data_get($messagePayload, 'text.body')
-                ?? data_get($messagePayload, 'button.text')
-                ?? data_get($messagePayload, 'interactive.button_reply.title')
-                ?? '';
-
-            $inbound = InboundMessage::firstOrCreate(
-                ['meta_message_id' => $metaId],
-                [
-                    'business_id' => $account->business_id,
-                    'customer_id' => $customer?->id,
-                    'whatsapp_conversation_id' => $conversation->id,
-                    'public_id' => (string) Str::uuid(),
-                    'from_phone_e164' => $phone,
-                    'message_text' => $text,
-                    'payload' => [
-                        'type' => $messagePayload['type'] ?? 'unknown',
-                        'timestamp' => $messagePayload['timestamp'] ?? null,
-                        'context_message_id' => data_get($messagePayload, 'context.id'),
-                    ],
-                    'status' => 'received',
-                ],
-            );
-
-            if ($inbound->wasRecentlyCreated) {
-                $conversation->update([
-                    'last_message_at' => now(),
-                    'last_inbound_at' => now(),
-                    'unread_count' => $conversation->unread_count + 1,
-                    'status' => 'open',
-                ]);
-                ProcessInboundWhatsAppMessage::dispatch($inbound->id)->onQueue('webhooks');
-            }
+            $messagePayload['contact_name'] = data_get($value, 'contacts.0.profile.name');
+            $this->handleInboundMessage($account, $messagePayload, $conversations);
         }
 
         foreach (Arr::wrap($value['statuses'] ?? []) as $status) {
@@ -136,6 +134,58 @@ class WhatsAppWebhookController extends Controller
             if ($event->wasRecentlyCreated) {
                 $this->applyStatus($account->business_id, $status);
             }
+        }
+    }
+
+    private function handleInboundMessage(WhatsAppAccount $account, array $messagePayload, WhatsAppConversationService $conversations): void
+    {
+        $metaId = $messagePayload['id'] ?? null;
+        $from = $messagePayload['from'] ?? null;
+        if (! $metaId || ! $from) {
+            return;
+        }
+        $event = $this->recordEvent($account->business_id, 'message:'.$metaId, 'message', $messagePayload);
+        if (! $event->wasRecentlyCreated) {
+            return;
+        }
+
+        $phone = '+'.ltrim($from, '+');
+        $customer = Customer::where('phone_hash', Customer::phoneHash($phone))->first();
+        $contactName = $messagePayload['contact_name'] ?? null;
+        $conversation = $conversations->forPhone($account->business_id, $phone, $customer, $contactName);
+        $text = is_string($messagePayload['text'] ?? null)
+            ? $messagePayload['text']
+            : (data_get($messagePayload, 'text.body')
+                ?? data_get($messagePayload, 'button.text')
+                ?? data_get($messagePayload, 'interactive.button_reply.title')
+                ?? '');
+
+        $inbound = InboundMessage::firstOrCreate(
+            ['meta_message_id' => $metaId],
+            [
+                'business_id' => $account->business_id,
+                'customer_id' => $customer?->id,
+                'whatsapp_conversation_id' => $conversation->id,
+                'public_id' => (string) Str::uuid(),
+                'from_phone_e164' => $phone,
+                'message_text' => $text,
+                'payload' => [
+                    'type' => $messagePayload['type'] ?? 'unknown',
+                    'timestamp' => $messagePayload['timestamp'] ?? null,
+                    'context_message_id' => $messagePayload['context_id'] ?? data_get($messagePayload, 'context.id'),
+                ],
+                'status' => 'received',
+            ],
+        );
+
+        if ($inbound->wasRecentlyCreated) {
+            $conversation->update([
+                'last_message_at' => now(),
+                'last_inbound_at' => now(),
+                'unread_count' => $conversation->unread_count + 1,
+                'status' => 'open',
+            ]);
+            ProcessInboundWhatsAppMessage::dispatch($inbound->id)->onQueue('webhooks');
         }
     }
 
