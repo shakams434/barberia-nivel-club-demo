@@ -27,6 +27,9 @@
                     @if($message->error_message)<div class="mt-3 rounded-xl border border-rose-300/15 bg-rose-300/7 p-3 text-xs text-rose-100"><strong>{{ $message->error_code ?: 'ERROR' }}</strong> · {{ $message->error_message }}</div>@endif
                 </div>
                 <div class="flex flex-wrap gap-2 lg:max-w-64 lg:justify-end">
+                    @if($message->conversation)
+                        <a class="btn btn-secondary min-h-10 text-xs" href="{{ route('whatsapp.conversations.show', $message->conversation) }}">Ver chat</a>
+                    @endif
                     @if(in_array($message->status,['failed','cancelled','queued']))
                         <form method="POST" action="{{ route('messages.retry',$message) }}">@csrf<button class="btn btn-secondary min-h-10 text-xs" type="submit">Reintentar</button></form>
                     @endif

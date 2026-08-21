@@ -7,8 +7,10 @@
 </div>
 <nav class="tabs mb-5" aria-label="Módulos de WhatsApp"><a class="border-[#d4af37]/30 bg-[#d4af37]/10 text-[#e8c85a]" href="{{ route('whatsapp.conversations.index') }}">Conversaciones</a><a href="{{ route('messages.index') }}">Historial de envíos</a>@can('manage-whatsapp')<a href="{{ route('whatsapp.connection') }}">Conexión</a>@endcan</nav>
 
-@if(!$account || $account->provider !== 'meta')
-    <div class="mb-5 rounded-xl border border-amber-300/20 bg-amber-300/7 p-4 text-sm text-amber-100"><strong>Modo de práctica.</strong> Puedes revisar la experiencia con mensajes locales.@can('manage-whatsapp') Para recibir WhatsApp reales, completa <a class="font-black underline" href="{{ route('whatsapp.connection') }}">Conectar con Meta</a>.@endcan</div>
+@if(!$account || $account->provider === 'fake')
+    <div class="mb-5 rounded-xl border border-amber-300/20 bg-amber-300/7 p-4 text-sm text-amber-100"><strong>Modo de práctica.</strong> Puedes revisar la experiencia con mensajes locales; no se enviarán WhatsApp reales.@can('manage-whatsapp') Para enviar mensajes reales, conecta un número en <a class="font-black underline" href="{{ route('whatsapp.connection') }}">Conexión</a>.@endcan</div>
+@elseif($account->provider === 'baileys' && !$account->send_enabled)
+    <div class="mb-5 rounded-xl border border-amber-300/20 bg-amber-300/7 p-4 text-sm text-amber-100"><strong>Envíos pausados.</strong> Las respuestas no se enviarán hasta que actives el bot en <a class="font-black underline" href="{{ route('whatsapp.connection') }}">Conexión</a>.</div>
 @endif
 
 <section class="{{ $selectedConversation ? 'fixed inset-x-0 top-[61px] bottom-[68px] z-40 rounded-none lg:static lg:z-auto lg:rounded-2xl' : 'rounded-2xl' }} overflow-hidden border border-white/9 bg-[#15181d] shadow-2xl lg:grid lg:min-h-[680px] lg:grid-cols-[370px_1fr]">
@@ -36,7 +38,7 @@
                 @php($canReply = $account?->provider !== 'meta' || $selectedConversation->sessionIsOpen())
                 @if($canReply)
                     <form class="flex items-end gap-2" method="POST" action="{{ route('whatsapp.conversations.reply', $selectedConversation) }}">@csrf<textarea class="textarea min-h-12 flex-1 resize-none" name="message" maxlength="4096" required placeholder="Escribe una respuesta…"></textarea><button class="btn btn-primary shrink-0" type="submit" data-busy-text="Enviando…">Enviar</button></form>
-                    <p class="mt-2 text-[11px] text-[#777d87]">@if($account?->provider === 'meta')Puedes responder libremente hasta {{ $selectedConversation->last_inbound_at?->copy()->addHours(24)->timezone(auth()->user()->business->timezone)->format('d/m H:i') }}.@elseRespuesta local de práctica; no se enviará fuera de la demo.@endif</p>
+                    <p class="mt-2 text-[11px] text-[#777d87]">@if($account?->provider === 'meta')Puedes responder libremente hasta {{ $selectedConversation->last_inbound_at?->copy()->addHours(24)->timezone(auth()->user()->business->timezone)->format('d/m H:i') }}.@elseif($account?->provider === 'baileys')La respuesta se enviará por WhatsApp a través de tu bot conectado.@elseRespuesta local de práctica; no se enviará fuera de la demo.@endif</p>
                 @else
                     <div class="flex flex-col gap-3 rounded-xl border border-amber-300/20 bg-amber-300/7 p-4 sm:flex-row sm:items-center sm:justify-between"><p class="text-sm text-amber-100"><strong class="block">Terminó la ventana de respuesta.</strong><span class="text-amber-100/70">Para retomar el contacto, WhatsApp exige una plantilla aprobada.</span></p><a class="btn btn-secondary shrink-0" href="{{ route('settings.index') }}#plantillas">Ver plantillas</a></div>
                 @endif

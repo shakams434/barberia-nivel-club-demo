@@ -14,7 +14,7 @@ class MessageController extends Controller
 {
     public function index(Request $request): View
     {
-        $messages = WhatsAppMessage::with(['customer', 'template'])
+        $messages = WhatsAppMessage::with(['customer', 'template', 'conversation'])
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->status))
             ->when($request->filled('type'), fn ($query) => $query->where('message_type', $request->type))
             ->latest()
