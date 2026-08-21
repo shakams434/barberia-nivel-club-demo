@@ -14,3 +14,7 @@ Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])
 Route::post('/webhooks/whatsapp-bot', [WhatsAppWebhookController::class, 'receiveBot'])
     ->middleware('throttle:webhooks')
     ->name('whatsapp.webhook.bot.receive');
+
+Route::post('/webhooks/whatsapp-bot/register', [WhatsAppWebhookController::class, 'registerBot'])
+    ->middleware('throttle:webhooks')
+    ->name('whatsapp.webhook.bot.register');

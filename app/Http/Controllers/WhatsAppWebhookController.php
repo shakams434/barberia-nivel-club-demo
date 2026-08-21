@@ -121,6 +121,39 @@ class WhatsAppWebhookController extends Controller
         return response('EVENT_RECEIVED', 200);
     }
 
+    public function registerBot(Request $request): Response
+    {
+        $account = WhatsAppAccount::withoutGlobalScope('business')->where('provider', 'baileys')->first();
+        $header = (string) $request->header('Authorization');
+        $token = str_starts_with($header, 'Bearer ')
+            ? substr($header, 7)
+            : (string) $request->header('X-Webhook-Token');
+        $secret = config('whatsapp.baileys_webhook_secret');
+
+        $valid = (filled($secret) && hash_equals($secret, $token))
+            || ($account && filled($account->access_token) && hash_equals((string) $account->access_token, $token));
+
+        if (! $valid) {
+            return response('Unauthorized', 401);
+        }
+
+        if (! $account) {
+            return response('No hay una cuenta de bot conectada. Conecta el bot una vez desde el panel.', 400);
+        }
+
+        $data = $request->validate(['base_url' => ['required', 'url', 'max:255']]);
+        $baseUrl = rtrim(preg_replace('#/send-message$#', '', $data['base_url']), '/');
+
+        $account->update([
+            'baileys_base_url' => $baseUrl,
+            'connection_status' => 'connected',
+            'last_error' => null,
+            'configuration_checked_at' => now(),
+        ]);
+
+        return response()->json(['ok' => true, 'base_url' => $baseUrl]);
+    }
+
     private function processValue(WhatsAppAccount $account, array $value, WhatsAppConversationService $conversations): void
     {
         foreach (Arr::wrap($value['messages'] ?? []) as $messagePayload) {
