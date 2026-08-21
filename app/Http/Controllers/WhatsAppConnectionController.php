@@ -153,11 +153,13 @@ class WhatsAppConnectionController extends Controller
             'phone_e164' => ['required', 'string', 'max:24', 'regex:/^\+?[0-9]{8,15}$/'],
         ]);
 
+        $baseUrl = rtrim(preg_replace('#/send-message$#', '', $data['baileys_base_url']), '/');
+
         $account ??= new WhatsAppAccount(['business_id' => $request->user()->business_id]);
         $account->fill([
             'provider' => 'baileys',
             'connection_mode' => 'baileys',
-            'baileys_base_url' => rtrim($data['baileys_base_url'], '/'),
+            'baileys_base_url' => $baseUrl,
             'phone_e164' => $data['phone_e164'],
             'verified_name' => 'Bot WhatsApp Web',
             'quality_rating' => null,

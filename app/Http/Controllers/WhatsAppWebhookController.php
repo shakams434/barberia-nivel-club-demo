@@ -104,7 +104,7 @@ class WhatsAppWebhookController extends Controller
         $tenant->set($account->business_id);
         try {
             foreach (Arr::wrap($payload['messages'] ?? []) as $messagePayload) {
-                $this->handleInboundMessage($account, $messagePayload, $conversations);
+                $this->handleInboundMessage($account, $messagePayload, $conversations, processSync: true);
             }
             foreach (Arr::wrap($payload['statuses'] ?? []) as $status) {
                 $eventKey = implode(':', ['status', $status['id'] ?? 'unknown', $status['status'] ?? 'unknown', $status['timestamp'] ?? '0']);
@@ -137,7 +137,7 @@ class WhatsAppWebhookController extends Controller
         }
     }
 
-    private function handleInboundMessage(WhatsAppAccount $account, array $messagePayload, WhatsAppConversationService $conversations): void
+    private function handleInboundMessage(WhatsAppAccount $account, array $messagePayload, WhatsAppConversationService $conversations, bool $processSync = false): void
     {
         $metaId = $messagePayload['id'] ?? null;
         $from = $messagePayload['from'] ?? null;
@@ -185,7 +185,9 @@ class WhatsAppWebhookController extends Controller
                 'unread_count' => $conversation->unread_count + 1,
                 'status' => 'open',
             ]);
-            ProcessInboundWhatsAppMessage::dispatch($inbound->id)->onQueue('webhooks');
+            ProcessInboundWhatsAppMessage::dispatch($inbound->id)
+                ->onConnection($processSync ? 'sync' : 'database')
+                ->onQueue('webhooks');
         }
     }
 

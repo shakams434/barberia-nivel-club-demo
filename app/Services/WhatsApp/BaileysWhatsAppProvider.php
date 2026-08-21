@@ -16,7 +16,9 @@ class BaileysWhatsAppProvider implements WhatsAppProviderInterface
 
     private function baseUrl(): string
     {
-        return (string) ($this->account?->baileys_base_url ?: config('whatsapp.baileys_base_url'));
+        $url = (string) ($this->account?->baileys_base_url ?: config('whatsapp.baileys_base_url'));
+
+        return rtrim(preg_replace('#/send-message$#', '', $url), '/');
     }
 
     private function apiToken(): ?string
