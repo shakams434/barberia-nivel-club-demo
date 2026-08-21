@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class WhatsAppWebhookController extends Controller
 {
@@ -121,7 +122,7 @@ class WhatsAppWebhookController extends Controller
         return response('EVENT_RECEIVED', 200);
     }
 
-    public function registerBot(Request $request): Response
+    public function registerBot(Request $request): SymfonyResponse
     {
         $account = WhatsAppAccount::withoutGlobalScope('business')->where('provider', 'baileys')->first();
         $header = (string) $request->header('Authorization');
@@ -142,7 +143,7 @@ class WhatsAppWebhookController extends Controller
         }
 
         $data = $request->validate(['base_url' => ['required', 'url', 'max:255']]);
-        $baseUrl = rtrim(preg_replace('#/send-message$#', '', $data['base_url']), '/');
+        $baseUrl = self::normalizeBaseUrl($data['base_url']);
 
         $account->update([
             'baileys_base_url' => $baseUrl,
@@ -152,6 +153,11 @@ class WhatsAppWebhookController extends Controller
         ]);
 
         return response()->json(['ok' => true, 'base_url' => $baseUrl]);
+    }
+
+    public static function normalizeBaseUrl(string $url): string
+    {
+        return rtrim((string) preg_replace('#/send-message$#', '', rtrim($url, '/')), '/');
     }
 
     private function processValue(WhatsAppAccount $account, array $value, WhatsAppConversationService $conversations): void

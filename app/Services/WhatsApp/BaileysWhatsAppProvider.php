@@ -4,6 +4,7 @@ namespace App\Services\WhatsApp;
 
 use App\Contracts\WhatsAppProviderInterface;
 use App\Data\ProviderSendResult;
+use App\Http\Controllers\WhatsAppWebhookController;
 use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppMessage;
 use Illuminate\Http\Client\ConnectionException;
@@ -18,7 +19,7 @@ class BaileysWhatsAppProvider implements WhatsAppProviderInterface
     {
         $url = (string) ($this->account?->baileys_base_url ?: config('whatsapp.baileys_base_url'));
 
-        return rtrim(preg_replace('#/send-message$#', '', $url), '/');
+        return WhatsAppWebhookController::normalizeBaseUrl($url);
     }
 
     private function apiToken(): ?string
